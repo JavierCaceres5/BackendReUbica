@@ -1,7 +1,9 @@
-import * as usersService from '../services/user.service.js';
-import { supabase } from '../config/config.js';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import * as usersService from "../services/user.service.js";
+import { supabase } from "../config/config.js";
+import { v4 as uuidv4 } from "uuid"; // Esto es para el nombre aleatorio de la imagen
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+
 export async function getUsers(req, res) {
   try {
     const users = await usersService.getAllUsers();
@@ -11,54 +13,51 @@ export async function getUsers(req, res) {
   }
 }
 
-export async function getUser(req, res) {
+export async function getUserById(req, res) {
   try {
-    const user = await usersService.getUserById(req.params.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+    const userRole = req.user.role;
+    const userIdFromToken = req.user.id;
+    const userIdFromParams = req.params.id;
+
+    if (userRole !== "admin" && userIdFromToken !== userIdFromParams) {
+      return res
+        .status(403)
+        .json({ error: "No autorizado para ver este usuario" });
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userIdFromParams)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
 
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { supabase } from '../config/config.js';
-
-export async function createUser(req, res) {
+export async function registerUser(req, res) {
   try {
     const { firstname, lastname, email, password, phone, user_role } = req.body;
 
     // Verificar si el email ya existe
     const { data: existingUser, error: existingError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
+      .from("users")
+      .select("*")
+      .eq("email", email)
       .maybeSingle();
 
-    if (existingUser) return res.status(400).json({ error: 'El usuario ya existe' });
+    if (existingUser)
+      return res.status(400).json({ error: "El usuario ya existe" });
     if (existingError) throw existingError;
-
-    // Subir imagen si viene
-    let avatarUrl = null;
-    if (req.file) {
-      const file = req.file;
-      const filePath = `avatars/${Date.now()}-${file.originalname}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('useravatar')
-        .upload(filePath, file.buffer, { contentType: file.mimetype });
-
-      if (uploadError) return res.status(500).json({ error: 'Error al subir imagen' });
-
-      const { data: publicUrl } = supabase.storage.from('useravatar').getPublicUrl(filePath);
-      avatarUrl = publicUrl.publicUrl;
-    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { data: newUser, error: insertError } = await supabase
-      .from('users')
+      .from("users")
       .insert({
         firstname,
         lastname,
@@ -66,7 +65,6 @@ export async function createUser(req, res) {
         password: hashedPassword,
         phone,
         user_role,
-        photoProfile: avatarUrl
       })
       .select()
       .single();
@@ -77,40 +75,91 @@ export async function createUser(req, res) {
     const token = jwt.sign(
       { id: newUser.id, role: newUser.user_role, email: newUser.email },
       process.env.SUPABASE_JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" }
     );
 
-    res.status(201).json({ message: 'Usuario creado exitosamente', token, user: newUser });
+    res
+      .status(201)
+      .json({ message: "Usuario creado exitosamente", token, user: newUser });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
 
+// Login (validación contra el email y password)
+export async function login(req, res) {
+  try {
+    const { email, password } = req.body;
+
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid)
+      return res.status(401).json({ error: "Contraseña incorrecta" });
+
+    const token = jwt.sign(
+      { id: user.id, role: user.user_role, email: user.email },
+      process.env.SUPABASE_JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ token, user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
 
 // Actualizar usuario
 export async function updateUser(req, res) {
   try {
-    const userUpdate = req.body;
     const userId = req.params.id;
+    const userRole = req.user.role;
+    const userIdFromToken = req.user.id;
 
-    if (req.file) {
-      const file = req.file;
-      const filePath = `avatars/${Date.now()}-${file.originalname}`;
+    if (userRole === "admin") {
+      // Admin no puede modificarse a sí mismo
+      if (userIdFromToken === userId) {
+        return res
+          .status(403)
+          .json({ error: "El admin no puede modificar su propio perfil." });
+      }
+    } else {
+      // Si es cliente o emprendedor solo puede modificarse a sí mismo
+      if (userIdFromToken !== userId) {
+        return res
+          .status(403)
+          .json({ error: "No autorizado para modificar otros usuarios." });
+      }
+    }
 
-      const { error: uploadError } = await supabase.storage
-        .from('useravatar')
-        .upload(filePath, file.buffer, { contentType: file.mimetype });
+    let userUpdate = {};
 
-      if (uploadError) return res.status(500).json({ error: 'Error al subir imagen' });
+    // Bloquear modificación de rol
+    if (userRole === "admin") {
+      const { firstname, lastname, email, phone, user_role } = req.body;
+      userUpdate = { firstname, lastname, email, phone, user_role };
+    } else {
+      const { phone } = req.body;
+      userUpdate = { phone };
+    }
 
-      const { data: publicUrl } = supabase.storage.from('useravatar').getPublicUrl(filePath);
-      userUpdate.photoProfile = publicUrl.publicUrl;
+    userUpdate.updated_at = new Date().toISOString();
+
+    // Se verifica si en el middleware se subió una imagen, sino solo se agrega
+    if (req.userPhotoUrl) {
+      userUpdate.user_icon = req.userPhotoUrl;
     }
 
     const { data, error } = await supabase
-      .from('users')
+      .from("users")
       .update(userUpdate)
-      .eq('id', userId)
+      .eq("id", userId)
       .select()
       .single();
 
@@ -125,54 +174,45 @@ export async function updateUser(req, res) {
 export async function deleteUser(req, res) {
   try {
     const userId = req.params.id;
+    const userRole = req.user.role;
+    const userIdFromToken = req.user.id;
 
-    // Primero obtenemos el usuario para ver si tenía imagen
-    const { data: user, error: findError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    if (user.photoProfile) {
-      const urlParts = user.photoProfile.split('/');
-      const filePath = urlParts.slice(7).join('/');
-      await supabase.storage.from('useravatar').remove([filePath]);
+    // Verificar si el usuario tiene permisos para eliminar
+    if (userRole !== "admin" && userIdFromToken !== userId) {
+      return res
+        .status(403)
+        .json({ error: "No autorizado para eliminar este usuario" });
     }
 
-    const { error: deleteError } = await supabase.from('users').delete().eq('id', userId);
-    if (deleteError) throw deleteError;
+    // Bloquear autoeliminación del admin
+    if (userRole === "admin" && userIdFromToken === userId) {
+      return res.status(403).json({
+        error: "No puedes eliminar tu propia cuenta de administrador.",
+      });
+    }
 
-    res.status(204).send();
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-}
-
-// Login (validación contra el email y password)
-export async function login(req, res) {
-  try {
-    const { email, password } = req.body;
-
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
+    // Obtenemos el usuario para ver si tenía imagen
+    const { data: user, error: findError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
       .maybeSingle();
 
-    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) return res.status(401).json({ error: 'Contraseña incorrecta' });
+    if (user.user_icon) {
+      const urlParts = user.user_icon.split("/");
+      const filePath = urlParts.slice(7).join("/");
+      await supabase.storage.from("usericons").remove([filePath]);
+    }
 
-    const token = jwt.sign(
-      { id: user.id, role: user.user_role, email: user.email },
-      process.env.SUPABASE_JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const { error: deleteError } = await supabase
+      .from("users")
+      .delete()
+      .eq("id", userId);
+    if (deleteError) throw deleteError;
 
-    res.json({ token, user });
+    res.status(200).json({ message: "Usuario eliminado exitosamente." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
