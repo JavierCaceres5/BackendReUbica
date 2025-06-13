@@ -17,6 +17,11 @@ export const userRegisterValidationRules = [
     .matches(/[!@#$%^&*(),.?":{}|<>]/)
     .trim(),
 
+  body('confirmPassword')
+    .custom((value, { req }) => value === req.body.password)
+    .withMessage('Las contraseñas no coinciden')
+    .trim(),
+
   body('phone')
     .matches(/^\d{4}-\d{4}$/)
     .withMessage('El número de teléfono debe estar en el formato XXXX-XXXX')
