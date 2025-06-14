@@ -1,16 +1,6 @@
 import * as emprendimientoService from "../services/emprendimiento.service.js";
-
-const categoriasPermitidasPrincipales = ['ropa', 'alimentos', 'comida', 'higiene', 'artesanías', 'librería', 'servicios'];
-
-const categoriasSecundariasPorPrincipal = {
-  ropa: ['Ropa de segunda mano', 'Vestidos', 'Accesorios', 'Calzado', 'Ropa variada', 'Otros'],
-  alimentos: ['Frutas', 'Verduras', 'Lácteos', 'Productos enlatados', 'Snacks', 'Dulces típicos', 'Otros'],
-  comida: ['Pizzas', 'Hamburguesas', 'Comida mexicana', 'Comida asiática', 'Postres', 'Carnes', 'Pescados y mariscos', 'Comida saludable', 'Hot Dogs', 'Cafetería', 'Otros'],
-  higiene: ['Jabones', 'Shampoos', 'Productos dentales', 'Desodorantes', 'Productos femeninos', 'Otros'],
-  artesanías: ['Cerámica', 'Tejidos', 'Joyería artesanal', 'Cuadros', 'Muebles', 'Otros'],
-  librería: ['Libros infantiles', 'Novelas', 'Papelería', 'Material escolar', 'Revistas', 'Otros'],
-  servicios: ['Reparación electrónica', 'Limpieza', 'Transporte', 'Consultoría', 'Educación', 'Otros']
-};
+import { supabase } from "../config/config.js";
+import { categoriasPermitidasPrincipales, categoriasSecundariasPorPrincipal } from "../utils/categorias.js";
 
 function validarCategorias(categoriasPrincipales, categoriasSecundarias) {
   const principalesLower = categoriasPrincipales.map(cat => cat.toLowerCase());
@@ -23,7 +13,6 @@ function validarCategorias(categoriasPrincipales, categoriasSecundarias) {
     if (!pertenece) {
       return {
         valido: false,
-        mensaje: `La categoría secundaria '${secundaria}' no corresponde a ninguna categoría principal seleccionada.`
       };
     }
   }
@@ -57,7 +46,6 @@ export async function getEmprendimientoByIdController(req, res) {
 
 export async function createEmprendimientoController(req, res) {
   try {
-    const userID = req.user.id;
     const {
       nombre,
       descripcion,
@@ -68,64 +56,72 @@ export async function createEmprendimientoController(req, res) {
       direccion,
       telefono,
       redes_sociales,
+      userID,
       latitud,
-      longitud,
+      longitud
     } = req.body;
 
     if (
-      !nombre ||
-      !descripcion ||
-      !categoriasPrincipales ||
-      !Array.isArray(categoriasPrincipales) ||
-      categoriasPrincipales.length === 0 ||
-      !categoriasPrincipales.every(cat => categoriasPermitidasPrincipales.includes(cat.toLowerCase())) ||
-      !categoriasSecundarias ||
-      !Array.isArray(categoriasSecundarias) ||
-      !logo ||
-      !direccion ||
+      !nombre || 
+      !descripcion || 
+      !categoriasPrincipales || 
+      !Array.isArray(categoriasPrincipales) || 
+      categoriasPrincipales.length === 0 || 
+      !direccion || 
       latitud === undefined || latitud === null ||
       longitud === undefined || longitud === null ||
       !userID
     ) {
-      return res.status(400).json({ error: "Faltan campos obligatorios o categorías inválidas" });
+      return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
-    const validacionCategorias = validarCategorias(categoriasPrincipales, categoriasSecundarias || []);
-    if (!validacionCategorias.valido) {
-      return res.status(400).json({ error: validacionCategorias.mensaje });
+    const { data: existingEmprendimiento, error: existingError } = await supabase
+      .from("Comercio")
+      .select("*")
+      .eq("nombre", nombre)
+      .maybeSingle();
+
+    if (existingEmprendimiento) {
+      return res.status(400).json({ error: "El emprendimiento ya existe" });
     }
+    if (existingError) throw existingError;
 
-    const emprendimiento = {
-      nombre,
-      descripcion,
-      categoriasPrincipales,
-      categoriasSecundarias,
-      logo,
-      horarios_atencion: horarios_atencion || null,
-      direccion,
-      telefono: telefono || null,
-      redes_sociales: redes_sociales || null,
-      userID,
-      latitud,
-      longitud,
-    };
+    const { data: newEmprendimiento, error: insertError } = await supabase
+      .from("Comercio")
+      .insert({
+        nombre,
+        descripcion,
+        categoriasPrincipales,
+        categoriasSecundarias,
+        logo,
+        horarios_atencion: horarios_atencion || null,
+        direccion,
+        telefono: telefono || null,
+        redes_sociales: redes_sociales || null,
+        userID,
+        latitud,
+        longitud
+      })
+      .select()
+      .single();
 
-    const nuevoEmprendimiento = await emprendimientoService.createEmprendimiento(emprendimiento);
+    if (insertError) throw insertError;
 
     res.status(201).json({
       message: "Emprendimiento creado exitosamente",
-      emprendimiento: nuevoEmprendimiento,
+      emprendimiento: newEmprendimiento
     });
+
   } catch (error) {
-    res.status(500).json({ error: "Error interno del servidor" });
+    res.status(500).json({ error: error.message });
   }
-    console.log("Datos recibidos para crear emprendimiento:", req.body);
 }
 
 export async function updateEmprendimientoController(req, res) {
   try {
     const emprendimientoId = req.params.id;
     const userId = req.user.id;
+    const role = req.user.role;
     const updateData = req.body;
 
     const emprendimiento = await emprendimientoService.getEmprendimientoById(emprendimientoId);
@@ -133,41 +129,47 @@ export async function updateEmprendimientoController(req, res) {
       return res.status(404).json({ error: "Emprendimiento no encontrado" });
     }
 
-    if (emprendimiento.userID !== userId) {
+    if (emprendimiento.userID !== userId && role !== "admin") {
       return res.status(403).json({ error: "No autorizado para actualizar este emprendimiento" });
     }
 
+    const categoriasPermitidasPrincipales = [
+      "Comida",
+      "Alimentos",
+      "Higiene",
+      "Servicios",
+      "Ropa",
+      "Libreria",
+      "Artesanias"
+    ];
+
     if (updateData.categoriasPrincipales) {
-      if (!Array.isArray(updateData.categoriasPrincipales) || 
-          !updateData.categoriasPrincipales.every(cat => categoriasPermitidasPrincipales.includes(cat.toLowerCase()))
+      if (
+        !Array.isArray(updateData.categoriasPrincipales) ||
+        !updateData.categoriasPrincipales.every((cat) =>
+          categoriasPermitidasPrincipales.includes(cat)
+        )
       ) {
         return res.status(400).json({ error: "Categorías principales inválidas" });
       }
     }
 
-    if (updateData.categoriasSecundarias) {
-      const categoriasPrincipalesParaValidar = updateData.categoriasPrincipales || emprendimiento.categoriasPrincipales;
-      const validacionCategorias = validarCategorias(categoriasPrincipalesParaValidar, updateData.categoriasSecundarias);
-      if (!validacionCategorias.valido) {
-        return res.status(400).json({ error: validacionCategorias.mensaje });
-      }
-    }
-
     const camposActualizables = [
-      'nombre',
-      'descripcion',
-      'categoriasPrincipales',
-      'categoriasSecundarias',
-      'logo',
-      'horarios_atencion',
-      'direccion',
-      'telefono',
-      'redes_sociales',
-      'latitud',
-      'longitud'
+      "nombre",
+      "descripcion",
+      "categoriasPrincipales",
+      "categoriasSecundarias",
+      "logo",
+      "horarios_atencion",
+      "direccion",
+      "telefono",
+      "redes_sociales",
+      "latitud",
+      "longitud",
     ];
 
     const emprendimientoActualizado = {};
+
     for (const field of camposActualizables) {
       if (field in updateData) {
         emprendimientoActualizado[field] = updateData[field];
@@ -185,6 +187,7 @@ export async function updateEmprendimientoController(req, res) {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 }
+
 
 export async function deleteEmprendimientoController(req, res) {
   try {
@@ -230,13 +233,16 @@ export async function getEmprendimientosByCategoriaController(req, res) {
     const { categoria } = req.query;
 
     if (!categoria) {
-      return res.status(400).json({ error: "El parámetro 'categoria' es requerido" });
+      return res.status(400).json({ error: "Debe proporcionar una categoría principal" });
     }
 
-    const resultados = await emprendimientoService.getEmprendimientosByCategoria(categoria);
+    if (!categoriasPermitidasPrincipales.includes(categoria)) {
+      return res.status(400).json({ error: "Categoría principal no válida" });
+    }
 
-    res.status(200).json(resultados);
+    const emprendimientos = await emprendimientoService.getEmprendimientosByCategoriaPrincipal(categoria);
+    res.json(emprendimientos);
   } catch (error) {
-    res.status(500).json({ error: "Error interno del servidor" });
-  }
+    res.status(500).json({ error: error.message });
+  }
 }

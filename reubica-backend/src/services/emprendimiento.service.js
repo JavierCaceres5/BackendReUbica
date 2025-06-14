@@ -13,16 +13,18 @@ export async function getEmprendimientoById(id) {
 }
 
 export async function createEmprendimiento(Emprendimiento) {
-  console.log("Datos recibidos para crear emprendimiento:", Emprendimiento);
-
   const { data, error } = await supabase.from('Comercio').insert(Emprendimiento).single();
   if (error) throw error;
   return data;
 }
 
 export async function updateEmprendimiento(id, Emprendimiento) {
-  const { data, error } = await supabase.from('Comercio').update(Emprendimiento).eq('id', id).single();
-  if (error) throw error;
+  const { data, error } = await supabase.from('Comercio').update(Emprendimiento).eq('id', id).select('*').single();
+  if (error) {
+    console.error(error);
+    throw error;
+  }
+
   return data;
 }
 
@@ -33,6 +35,7 @@ export async function deleteEmprendimiento(id) {
 }
 
 export async function searchEmprendimientosByNombre(nombre) {
+
   if (!nombre) return [];
 
   const { data, error } = await supabase.from('Comercio').select('*').ilike('nombre', `%${nombre}%`);
@@ -41,10 +44,11 @@ export async function searchEmprendimientosByNombre(nombre) {
   return data;
 }
 
-export async function getEmprendimientosByCategoria(categoria) {
-  if (!categoria) return [];
-
-  const { data, error } = await supabase.from('Comercio').select('*').contains('categoriasPrincipales', [categoria]);
+export async function getEmprendimientosByCategoriaPrincipal(categoria) {
+  const { data, error } = await supabase
+    .from('Comercio')
+    .select('*')
+    .contains('categoriasPrincipales', [categoria]);  
 
   if (error) throw error;
   return data;

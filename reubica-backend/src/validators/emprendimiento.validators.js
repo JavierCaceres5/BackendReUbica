@@ -1,17 +1,5 @@
-import { body } from 'express-validator';
+import { body, query } from 'express-validator';
 import { supabase } from '../config/config.js';
-
-const categoriasPermitidasPrincipales = ['ropa', 'alimentos', 'comida', 'higiene', 'artesanías', 'librería', 'servicios'];
-
-const categoriasSecundariasPorPrincipal = {
-  ropa: ['Ropa de segunda mano', 'Vestidos', 'Accesorios', 'Calzado', 'Ropa variada', 'Otros'],
-  alimentos: ['Frutas', 'Verduras', 'Lácteos', 'Productos enlatados', 'Snacks', 'Dulces típicos', 'Otros'],
-  comida: ['Pizzas', 'Hamburguesas', 'Comida mexicana', 'Comida asiática', 'Postres', 'Carnes', 'Pescados y mariscos', 'Comida saludable', 'Hot Dogs', 'Cafetería', 'Otros'],
-  higiene: ['Jabones', 'Shampoos', 'Productos dentales', 'Desodorantes', 'Productos femeninos', 'Otros'],
-  artesanías: ['Cerámica', 'Tejidos', 'Joyería artesanal', 'Cuadros', 'Muebles', 'Otros'],
-  librería: ['Libros infantiles', 'Novelas', 'Papelería', 'Material escolar', 'Revistas', 'Otros'],
-  servicios: ['Reparación electrónica', 'Limpieza', 'Transporte', 'Consultoría', 'Educación', 'Otros']
-};
 
 const nombreUnico = async (valor) => {
   const { data, error } = await supabase
@@ -206,9 +194,14 @@ export const searchByNombreValidationRules = [
 ];
 
 export const searchByCategoriaValidationRules = [
-  body('categoria')
+  query('categoria')
     .trim()
-    .notEmpty()
-    .isString()
-    .isLength({ max: 50 }),
+    .notEmpty().withMessage('La categoría es requerida')
+    .isString().withMessage('La categoría debe ser un texto')
+    .custom((value) => {
+      if (!categoriasPermitidasPrincipales.includes(value)) {
+        throw new Error("Categoría principal no válida");
+      }
+      return true;
+    }),
 ];

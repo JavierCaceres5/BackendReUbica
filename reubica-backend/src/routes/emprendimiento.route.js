@@ -10,12 +10,26 @@ import {
   searchByNombreValidationRules,
   searchByCategoriaValidationRules,
 } from "../validators/emprendimiento.validators.js";
+
 import upload from "../middlewares/uploadImage.middleware.js";
 import uploadImageToSupabase from "../middlewares/uploadImageSupabase.middleware.js";
 
 const router = express.Router();
 
+
 router.get("/", emprendimientoController.getEmprendimientosController);
+
+router.get(
+  "/categoria",
+  searchByCategoriaValidationRules,
+  emprendimientoController.getEmprendimientosByCategoriaController
+);
+
+router.get(
+  "/nombre",
+  searchByNombreValidationRules,
+  emprendimientoController.searchEmprendimientosByNombreController
+);
 
 router.get(
   "/:id",
@@ -25,10 +39,8 @@ router.get(
 );
 
 router.post(
-  "/",
+  "/registerEmprendimiento",
   authenticateToken,
-  upload.single("user_icon"),
-  uploadImageToSupabase,
   emprendimientoValidationRulesRegister,
   emprendimientoController.createEmprendimientoController
 );
@@ -48,16 +60,6 @@ router.delete(
   emprendimientoController.deleteEmprendimientoController
 );
 
-router.get(
-  "/search",
-  searchByNombreValidationRules,
-  emprendimientoController.searchEmprendimientosByNombreController
-);
 
-router.get(
-  "/categoria",
-  searchByCategoriaValidationRules,
-  emprendimientoController.getEmprendimientosByCategoriaController
-);
 
 export default router;
