@@ -56,10 +56,12 @@ export async function createEmprendimientoController(req, res) {
       direccion,
       telefono,
       redes_sociales,
-      userID,
       latitud,
       longitud
     } = req.body;
+
+    const userID = req.user.id;
+    const userRole = req.user.role;  
 
     if (
       !nombre || 
@@ -69,22 +71,38 @@ export async function createEmprendimientoController(req, res) {
       categoriasPrincipales.length === 0 || 
       !direccion || 
       latitud === undefined || latitud === null ||
-      longitud === undefined || longitud === null ||
-      !userID
+      longitud === undefined || longitud === null
     ) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
-    const { data: existingEmprendimiento, error: existingError } = await supabase
+    // Validar si ya existe un emprendimiento para este usuario (excepto si es admin)
+    if (userRole !== 'admin') {
+      const { data: existingByUser, error: errorByUser } = await supabase
+        .from("Comercio")
+        .select("*")
+        .eq("userID", userID)
+        .maybeSingle();
+
+      if (existingByUser) {
+        return res.status(400).json({ error: "Ya tiene un emprendimiento registrado" });
+      }
+      if (errorByUser) throw errorByUser;
+    }
+
+    // Validar si ya existe un emprendimiento con el mismo nombre 
+    const { data: existingByName, error: errorByName } = await supabase
       .from("Comercio")
       .select("*")
       .eq("nombre", nombre)
       .maybeSingle();
 
-    if (existingEmprendimiento) {
-      return res.status(400).json({ error: "El emprendimiento ya existe" });
+    if (existingByName) {
+      return res.status(400).json({ error: "Ya existe un emprendimiento con ese nombre" });
     }
-    if (existingError) throw existingError;
+    if (errorByName) throw errorByName;
+
+    const logoFinal = req.emprendimientoLogoUrl || logo || null; 
 
     const { data: newEmprendimiento, error: insertError } = await supabase
       .from("Comercio")
@@ -93,7 +111,7 @@ export async function createEmprendimientoController(req, res) {
         descripcion,
         categoriasPrincipales,
         categoriasSecundarias,
-        logo,
+        logo: logoFinal,
         horarios_atencion: horarios_atencion || null,
         direccion,
         telefono: telefono || null,
@@ -107,6 +125,16 @@ export async function createEmprendimientoController(req, res) {
 
     if (insertError) throw insertError;
 
+    // Solo cambiar el rol si es un cliente creando su propio emprendimiento
+    if (userRole === 'cliente') {
+      const { error: roleUpdateError } = await supabase
+        .from("users")
+        .update({ user_role: 'emprendedor' })
+        .eq("id", userID);
+
+      if (roleUpdateError) throw roleUpdateError;
+    }
+
     res.status(201).json({
       message: "Emprendimiento creado exitosamente",
       emprendimiento: newEmprendimiento
@@ -116,6 +144,7 @@ export async function createEmprendimientoController(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
+
 
 export async function updateEmprendimientoController(req, res) {
   try {
