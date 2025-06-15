@@ -11,14 +11,14 @@ import {
 } from "../validators/user.validators.js";
 import validate from "../middlewares/validation.middleware.js";
 import upload from "../middlewares/uploadImage.middleware.js";
-import uploadImageToSupabase from "../middlewares/uploadImageSupabase.middleware.js";
+import { uploadUserImageToSupabase } from "../middlewares/uploadImageSupabase.middleware.js";
 const router = express.Router();
 
 // Registro de usuario
 router.post(
   "/register",
   upload.single("user_icon"),
-  uploadImageToSupabase,
+  uploadUserImageToSupabase,
   userRegisterValidationRules,
   validate,
   usersController.registerUser
@@ -50,7 +50,7 @@ router.put(
   authenticateToken,
   authorizeRoles("admin", "cliente", "emprendedor"),
   upload.single("user_icon"),
-  uploadImageToSupabase,
+  uploadUserImageToSupabase,
   usersController.updateUser
 );
 // Solo admin puede eliminar usuarios

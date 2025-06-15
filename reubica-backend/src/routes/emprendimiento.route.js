@@ -10,9 +10,10 @@ import {
   searchByNombreValidationRules,
   searchByCategoriaValidationRules,
 } from "../validators/emprendimiento.validators.js";
-
+import validate from "../middlewares/validation.middleware.js";
 import upload from "../middlewares/uploadImage.middleware.js";
-import uploadImageToSupabase from "../middlewares/uploadImageSupabase.middleware.js";
+import { parseArraysMiddleware } from "../middlewares/parseArray.middleware.js";
+import { uploadEmprendimientoImageToSupabase } from "../middlewares/uploadImageSupabase.middleware.js";
 
 const router = express.Router();
 
@@ -22,12 +23,14 @@ router.get("/", emprendimientoController.getEmprendimientosController);
 router.get(
   "/categoria",
   searchByCategoriaValidationRules,
+  validate,
   emprendimientoController.getEmprendimientosByCategoriaController
 );
 
 router.get(
   "/nombre",
   searchByNombreValidationRules,
+  validate,
   emprendimientoController.searchEmprendimientosByNombreController
 );
 
@@ -40,8 +43,12 @@ router.get(
 
 router.post(
   "/registerEmprendimiento",
-  authenticateToken,
+  authenticateToken,  
+  upload.single("logo"),
+  uploadEmprendimientoImageToSupabase,
+  parseArraysMiddleware,
   emprendimientoValidationRulesRegister,
+  validate,
   emprendimientoController.createEmprendimientoController
 );
 
@@ -49,7 +56,7 @@ router.put(
   "/:id",
   authenticateToken,
   upload.single("user_icon"),
-  uploadImageToSupabase,
+  uploadEmprendimientoImageToSupabase,
   emprendimientoValidationRulesUpdate,
   emprendimientoController.updateEmprendimientoController
 );
