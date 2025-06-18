@@ -191,7 +191,6 @@ export async function deleteUser(req, res) {
       });
     }
 
-    // Obtenemos el usuario para ver si tenía imagen
     const { data: user, error: findError } = await supabase
       .from("users")
       .select("*")
@@ -199,6 +198,8 @@ export async function deleteUser(req, res) {
       .maybeSingle();
 
     if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Obtenemos el usuario para ver si tenía imagen
 
     if (user.user_icon) {
       const urlParts = user.user_icon.split("/");
