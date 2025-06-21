@@ -101,26 +101,20 @@ export async function createEmprendimientoController(req, res) {
 
     const logoFinal = req.emprendimientoLogoUrl || logo || null;
 
-    const { data: newEmprendimiento, error: insertError } = await supabase
-      .from("Comercio")
-      .insert({
-        nombre,
-        descripcion,
-        categoriasPrincipales,
-        categoriasSecundarias,
-        logo: logoFinal,
-        horarios_atencion: horarios_atencion || null,
-        direccion,
-        emprendimientoPhone: emprendimientoPhone || null,
-        redes_sociales: redes_sociales || null,
-        userID,
-        latitud,
-        longitud,
-      })
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
+    const newEmprendimiento = await emprendimientoService.createEmprendimiento({
+      nombre,
+      descripcion,
+      categoriasPrincipales,
+      categoriasSecundarias,
+      logo: logoFinal,
+      horarios_atencion: horarios_atencion || null,
+      direccion,
+      emprendimientoPhone: emprendimientoPhone || null,
+      redes_sociales: redes_sociales || null,
+      userID,
+      latitud,
+      longitud,
+    });
 
     // Solo cambiar el rol si es un cliente creando su propio emprendimiento
     if (userRole === "cliente") {

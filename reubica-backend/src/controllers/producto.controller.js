@@ -25,44 +25,43 @@ export async function getProductoByIdController(req, res) {
   }
 }
 
-// Crear producto (solo emprendedores o admins)
+// Crear producto 
 export async function createProductoController(req, res) {
   try {
-    const { nombre, descripcion, precio } = req.body;
+    const { nombre, descripcion, precio, product_image } = req.body;
     const userID = req.user.id;
-    const userRole = req.user.role;
 
-    if (!nombre || !descripcion || precio == null) {
-      return res.status(400).json({ error: "Campos obligatorios faltantes" });
-    }
-
-    // Verificar que tenga un emprendimiento registrado
-    const { data: comercio, error } = await supabase
+    // Buscar emprendimiento asociado al usuario autenticado
+    const { data: comercio, error: comercioError } = await supabase
       .from("Comercio")
       .select("id")
       .eq("userID", userID)
       .maybeSingle();
 
-    if (error) throw error;
+    if (comercioError) throw comercioError;
     if (!comercio) {
-      return res.status(400).json({ error: "Debe tener un emprendimiento registrado" });
+      return res
+        .status(400)
+        .json({ error: "Debes registrar un emprendimiento antes de crear productos." });
     }
 
-    const image = req.productImageUrl || null;
+    const productImageFinal = req.productImageUrl || product_image || null;
 
     const producto = await productoService.createProducto({
       nombre,
       descripcion,
       precio,
-      product_image: image,
+      product_image: productImageFinal,
       emprendimientoID: comercio.id,
     });
 
-    res.status(201).json({ message: "Producto creado", producto });
+    res.status(201).json({ message: "Producto creado exitosamente", producto });
   } catch (error) {
+    console.error("Error al crear producto:", error);
     res.status(500).json({ error: error.message });
   }
 }
+
 
 // Actualizar producto
 export async function updateProductoController(req, res) {
@@ -76,10 +75,10 @@ export async function updateProductoController(req, res) {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
 
-    // Validar propiedad
+    // Validar emprendimiento del usuario
     const { data: comercio, error } = await supabase
       .from("Comercio")
-      .select("id, userID")
+      .select("userID")
       .eq("id", producto.emprendimientoID)
       .maybeSingle();
 

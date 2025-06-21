@@ -1,7 +1,7 @@
 import { body, query } from "express-validator";
 import { supabase } from "../config/config.js";
 
-const nombreProductoUnico = async (nombre, { req }) => {
+export const nombreProductoUnico = async (nombre, { req }) => {
   const userID = req.user.id;
 
   const { data: comercio, error: comercioError } = await supabase
@@ -22,7 +22,9 @@ const nombreProductoUnico = async (nombre, { req }) => {
 
   if (error) throw new Error("Error validando nombre del producto");
   if (productoExistente)
-    throw new Error("Ya existe un producto con ese nombre en tu emprendimiento");
+    throw new Error(
+      "Ya existe un producto con ese nombre en tu emprendimiento"
+    );
 
   return true;
 };
@@ -35,11 +37,7 @@ export const productoValidationRulesRegister = [
     .isLength({ max: 100 })
     .custom(nombreProductoUnico),
 
-  body("descripcion")
-    .trim()
-    .notEmpty()
-    .isString()
-    .isLength({ max: 500 }),
+  body("descripcion").trim().notEmpty().isString().isLength({ max: 500 }),
 
   body("precio")
     .notEmpty()
@@ -48,7 +46,7 @@ export const productoValidationRulesRegister = [
     .withMessage("El precio debe ser mayor a 0"),
 
   body("product_image")
-    .notEmpty()
+    .optional({ nullable: true })
     .isString()
     .withMessage("La URL de imagen del producto es requerida")
     .isURL()
@@ -73,9 +71,5 @@ export const productoValidationRulesUpdate = [
 ];
 
 export const searchProductoByNombreValidationRules = [
-  query("nombre")
-    .trim()
-    .notEmpty()
-    .isString()
-    .isLength({ max: 100 }),
+  query("nombre").trim().notEmpty().isString().isLength({ max: 100 }),
 ];

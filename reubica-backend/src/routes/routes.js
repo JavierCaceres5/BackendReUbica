@@ -6,7 +6,6 @@ import productoRoutes from "./producto.route.js";
 const router = express.Router();
 
 router.use("/users", usersRoutes);
-router.use("/emprendimientos", emprendimientoRoutes)
-router.use("/productos", productoRoutes);
+router.use("/emprendimientos", emprendimientoRoutes, productoRoutes)
 
 export default router;

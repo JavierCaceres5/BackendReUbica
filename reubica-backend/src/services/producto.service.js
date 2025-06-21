@@ -1,4 +1,4 @@
-import { supabase } from "../config/config";
+import { supabase } from "../config/config.js";
 
 export async function getAllProductos() {
   const { data, error } = await supabase.from("Productos").select("*");
@@ -20,6 +20,7 @@ export async function createProducto(Producto) {
   const { data, error } = await supabase
     .from("Productos")
     .insert(Producto)
+    .select()
     .single();
   if (error) throw error;
   return data;

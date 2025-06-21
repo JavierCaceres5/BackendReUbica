@@ -16,7 +16,7 @@ import {
 const router = express.Router();
 
 // Obtener todos los productos
-router.get("/", productoController.getProductosController);
+router.get("/productos", productoController.getProductosController);
 
 // Buscar por nombre
 router.get(
