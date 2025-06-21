@@ -101,26 +101,20 @@ export async function createEmprendimientoController(req, res) {
 
     const logoFinal = req.emprendimientoLogoUrl || logo || null;
 
-    const { data: newEmprendimiento, error: insertError } = await supabase
-      .from("Comercio")
-      .insert({
-        nombre,
-        descripcion,
-        categoriasPrincipales,
-        categoriasSecundarias,
-        logo: logoFinal,
-        horarios_atencion: horarios_atencion || null,
-        direccion,
-        emprendimientoPhone: emprendimientoPhone || null,
-        redes_sociales: redes_sociales || null,
-        userID,
-        latitud,
-        longitud,
-      })
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
+    const newEmprendimiento = await emprendimientoService.createEmprendimiento({
+      nombre,
+      descripcion,
+      categoriasPrincipales,
+      categoriasSecundarias,
+      logo: logoFinal,
+      horarios_atencion: horarios_atencion || null,
+      direccion,
+      emprendimientoPhone: emprendimientoPhone || null,
+      redes_sociales: redes_sociales || null,
+      userID,
+      latitud,
+      longitud,
+    });
 
     // Solo cambiar el rol si es un cliente creando su propio emprendimiento
     if (userRole === "cliente") {
@@ -315,6 +309,129 @@ export async function getEmprendimientosByCategoriaController(req, res) {
         categoria
       );
     res.json(emprendimientos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Actualizar el propio emprendimiento del usuario autenticado
+export async function updateOwnEmprendimientoController(req, res) {
+  try {
+    const userId = req.user.id;
+
+    const { data: emprendimiento, error } = await supabase
+      .from("Comercio")
+      .select("*")
+      .eq("userID", userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!emprendimiento) return res.status(404).json({ error: "No tienes un emprendimiento registrado" });
+
+    const {
+      nombre,
+      descripcion,
+      categoriasPrincipales,
+      categoriasSecundarias,
+      horarios_atencion,
+      direccion,
+      emprendimientoPhone,
+      redes_sociales,
+      latitud,
+      longitud
+    } = req.body;
+
+    if (categoriasPrincipales) {
+      if (
+        !Array.isArray(categoriasPrincipales) ||
+        !categoriasPrincipales.every(cat => categoriasPermitidasPrincipales.includes(cat))
+      ) {
+        return res.status(400).json({ error: "Categorías principales inválidas" });
+      }
+    }
+
+    if (categoriasSecundarias && categoriasPrincipales) {
+      const secundariasInvalidas = categoriasSecundarias.filter(sec => {
+        return !categoriasPrincipales.some(principal =>
+          (categoriasSecundariasPorPrincipal[principal] || []).includes(sec)
+        );
+      });
+
+      if (secundariasInvalidas.length > 0) {
+        return res.status(400).json({
+          error: `Categorías secundarias inválidas: ${secundariasInvalidas.join(", ")}`
+        });
+      }
+    }
+
+    const updatePayload = {
+      nombre,
+      descripcion,
+      categoriasPrincipales,
+      categoriasSecundarias,
+      horarios_atencion,
+      direccion,
+      emprendimientoPhone,
+      redes_sociales,
+      latitud,
+      longitud,
+      updated_at: new Date().toISOString()
+    };
+
+    if (req.emprendimientoLogoUrl) {
+      updatePayload.logo = req.emprendimientoLogoUrl;
+    }
+
+    const filteredPayload = Object.fromEntries(
+      Object.entries(updatePayload).filter(([_, val]) => val !== undefined)
+    );
+
+    const updated = await emprendimientoService.updateEmprendimiento(emprendimiento.id, filteredPayload);
+
+    res.status(200).json({
+      message: "Emprendimiento actualizado exitosamente",
+      emprendimiento: updated
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Eliminar el propio emprendimiento del usuario autenticado
+export async function deleteOwnEmprendimientoController(req, res) {
+  try {
+    const userId = req.user.id;
+
+    const { data: emprendimiento, error } = await supabase
+      .from("Comercio")
+      .select("*")
+      .eq("userID", userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!emprendimiento) return res.status(404).json({ error: "No tienes un emprendimiento registrado" });
+
+    if (emprendimiento.logo) {
+      const urlParts = emprendimiento.logo.split("/");
+      const path = urlParts.slice(7).join("/");
+      await supabase.storage.from("emprendimientoslogos").remove([path]);
+    }
+
+    const { error: deleteError } = await supabase
+      .from("Comercio")
+      .delete()
+      .eq("id", emprendimiento.id);
+
+    if (deleteError) throw deleteError;
+
+    const { error: roleError } = await supabase
+      .from("users")
+      .update({ user_role: "cliente" })
+      .eq("id", userId);
+
+    if (roleError) throw roleError;
+
+    res.status(200).json({ message: "Emprendimiento eliminado exitosamente." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -20,6 +20,7 @@ export async function createEmprendimiento(Emprendimiento) {
   const { data, error } = await supabase
     .from("Comercio")
     .insert(Emprendimiento)
+    .select()
     .single();
   if (error) throw error;
   return data;
