@@ -170,7 +170,7 @@ export const emprendimientoValidationRulesUpdate = [
 
   body("direccion").optional().trim().isString().isLength({ max: 200 }),
 
-  body("telefono")
+  body("emprendimientoPhone")
     .optional()
     .custom((valor) => {
       if (typeof valor !== "string" || valor.trim() === "") {

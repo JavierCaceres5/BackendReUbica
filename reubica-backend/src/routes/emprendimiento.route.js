@@ -71,4 +71,23 @@ router.delete(
   emprendimientoController.deleteEmprendimientoController
 );
 
+router.put(
+  "/actualizarMiEmprendimiento",
+  authenticateToken,
+  authorizeRoles("emprendedor"),
+  upload.single("logo"),
+  uploadEmprendimientoImageToSupabase,
+  parseArraysMiddleware,
+  emprendimientoValidationRulesUpdate,
+  validate,
+  emprendimientoController.updateOwnEmprendimientoController
+);
+
+router.delete(
+  "/eliminarMiEmprendimiento",
+  authenticateToken,
+  authorizeRoles("emprendedor"),
+  emprendimientoController.deleteOwnEmprendimientoController
+);
+
 export default router;
