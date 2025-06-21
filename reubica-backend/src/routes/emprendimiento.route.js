@@ -70,3 +70,5 @@ router.delete(
   authorizeRoles("admin", "emprendedor"),
   emprendimientoController.deleteEmprendimientoController
 );
+
+export default router;
