@@ -17,7 +17,6 @@ import { uploadEmprendimientoImageToSupabase } from "../middlewares/uploadImageS
 
 const router = express.Router();
 
-
 router.get("/", emprendimientoController.getEmprendimientosController);
 
 router.get(
@@ -42,8 +41,9 @@ router.get(
 );
 
 router.post(
-  "/registerEmprendimiento",
-  authenticateToken,  
+  "/registrarEmprendimiento",
+  authenticateToken,
+  authorizeRoles("admin", "cliente"),
   upload.single("logo"),
   uploadEmprendimientoImageToSupabase,
   parseArraysMiddleware,
@@ -53,20 +53,41 @@ router.post(
 );
 
 router.put(
-  "/:id",
+  "/actualizarEmprendimiento/:id",
   authenticateToken,
-  upload.single("user_icon"),
+  authorizeRoles("admin", "emprendedor"),
+  upload.single("logo"),
   uploadEmprendimientoImageToSupabase,
+  parseArraysMiddleware,
   emprendimientoValidationRulesUpdate,
+  validate,
   emprendimientoController.updateEmprendimientoController
 );
 
 router.delete(
-  "/:id",
+  "/deleteEmprendimiento/:id",
   authenticateToken,
+  authorizeRoles("admin", "emprendedor"),
   emprendimientoController.deleteEmprendimientoController
 );
 
+router.put(
+  "/actualizarMiEmprendimiento",
+  authenticateToken,
+  authorizeRoles("emprendedor"),
+  upload.single("logo"),
+  uploadEmprendimientoImageToSupabase,
+  parseArraysMiddleware,
+  emprendimientoValidationRulesUpdate,
+  validate,
+  emprendimientoController.updateOwnEmprendimientoController
+);
 
+router.delete(
+  "/eliminarMiEmprendimiento",
+  authenticateToken,
+  authorizeRoles("emprendedor"),
+  emprendimientoController.deleteOwnEmprendimientoController
+);
 
 export default router;

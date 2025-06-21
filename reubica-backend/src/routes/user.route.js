@@ -61,6 +61,18 @@ router.delete(
   usersController.deleteUser
 );
 
-//router.post('/logout', authenticateToken, usersController.logout);
+router.delete(
+  '/deleteProfile',
+   authenticateToken,
+    authorizeRoles('cliente', 'emprendedor'),
+     usersController.deleteOwnUserController
+);
+
+router.put(
+  '/updateProfile',
+  authenticateToken,
+  authorizeRoles('cliente', 'emprendedor'),
+  usersController.updateOwnUserController
+);
 
 export default router;

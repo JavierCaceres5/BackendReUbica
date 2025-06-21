@@ -191,7 +191,6 @@ export async function deleteUser(req, res) {
       });
     }
 
-    // Obtenemos el usuario para ver si tenía imagen
     const { data: user, error: findError } = await supabase
       .from("users")
       .select("*")
@@ -199,6 +198,8 @@ export async function deleteUser(req, res) {
       .maybeSingle();
 
     if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Obtenemos el usuario para ver si tenía imagen
 
     if (user.user_icon) {
       const urlParts = user.user_icon.split("/");
@@ -215,5 +216,71 @@ export async function deleteUser(req, res) {
     res.status(200).json({ message: "Usuario eliminado exitosamente." });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+}
+
+export async function deleteOwnUserController(req, res) {
+  try {
+    const userRole = req.user.role;
+    const userIdFromToken = req.user.id;
+    const userIdToDelete = req.params.id || userIdFromToken;
+
+    if (userRole !== 'admin' && userIdToDelete !== userIdFromToken) {
+      return res.status(403).json({ error: 'No autorizado para eliminar este usuario' });
+    }
+
+    if (userRole === 'admin' && userIdToDelete === userIdFromToken) {
+      return res.status(403).json({ error: 'No puedes eliminar tu propia cuenta de administrador.' });
+    }
+
+    const { data: user, error: findError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userIdToDelete)
+      .maybeSingle();
+
+    if (findError) throw findError;
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    if (user.user_icon) {
+      const urlParts = user.user_icon.split('/');
+      const filePath = urlParts.slice(7).join('/');
+      await supabase.storage.from('usericons').remove([filePath]);
+    }
+
+    await usersService.deleteUser(userIdToDelete);
+
+    return res.status(200).json({ message: 'Usuario eliminado exitosamente.' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+export async function updateOwnUserController(req, res) {
+  try {
+    const userId = req.user.id;
+    const updateData = req.body;
+
+    if (updateData.user_icon) {
+      const { data: existingUser, error: fetchError } = await supabase
+        .from('users')
+        .select('user_icon')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (existingUser?.user_icon && existingUser.user_icon !== updateData.user_icon) {
+        const urlParts = existingUser.user_icon.split('/');
+        const filePath = urlParts.slice(7).join('/');
+        await supabase.storage.from('usericons').remove([filePath]);
+      }
+    }
+
+    const updatedUser = await usersService.updateUser(userId, updateData);
+
+    return res.status(200).json({ message: 'Perfil actualizado correctamente', user: updatedUser });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 }

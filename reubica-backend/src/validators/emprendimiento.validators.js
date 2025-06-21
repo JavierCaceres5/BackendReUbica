@@ -1,6 +1,9 @@
 import { body, query } from "express-validator";
 import { supabase } from "../config/config.js";
-import { categoriasPermitidasPrincipales, categoriasSecundariasPorPrincipal } from '../utils/categorias.js';
+import {
+  categoriasPermitidasPrincipales,
+  categoriasSecundariasPorPrincipal,
+} from "../utils/categorias.js";
 
 const nombreUnico = async (valor) => {
   const { data, error } = await supabase
@@ -22,7 +25,7 @@ export const emprendimientoValidationRulesRegister = [
     .custom(nombreUnico),
 
   body("descripcion")
-    .optional({ nullable: true })
+    .optional({ nullable: false })
     .isString()
     .isLength({ max: 500 }),
 
@@ -64,7 +67,7 @@ export const emprendimientoValidationRulesRegister = [
   body("logo").optional({ nullable: true }).isString().isURL(),
 
   body("horarios_atencion")
-    .optional({ nullable: true })
+    .optional({ nullable: false })
     .custom((valor) => {
       try {
         if (typeof valor === "string") JSON.parse(valor);
@@ -78,18 +81,19 @@ export const emprendimientoValidationRulesRegister = [
   body("direccion").trim().notEmpty().isString().isLength({ max: 200 }),
 
   body("telefono")
-    .optional({ nullable: true })
+    .optional()
     .custom((valor) => {
-      if (!valor) return true;
-      if (typeof valor !== "string")
-        throw new Error("El teléfono debe ser una cadena");
-      if (!valor.match(/^\d{4}-\d{4}$/))
+      if (typeof valor !== "string" || valor.trim() === "") {
+        throw new Error("El teléfono no puede estar vacío");
+      }
+      if (!valor.match(/^\d{4}-\d{4}$/)) {
         throw new Error("El teléfono debe tener el formato XXXX-XXXX");
+      }
       return true;
     }),
 
   body("redes_sociales")
-    .optional({ nullable: true })
+    .optional({ nullable: false })
     .custom((valor) => {
       try {
         if (typeof valor === "string") JSON.parse(valor);
@@ -109,7 +113,7 @@ export const emprendimientoValidationRulesUpdate = [
   body("nombre").optional().trim().isString().isLength({ max: 100 }),
 
   body("descripcion")
-    .optional({ nullable: true })
+    .optional({ nullable: false })
     .isString()
     .isLength({ max: 500 }),
 
@@ -150,10 +154,10 @@ export const emprendimientoValidationRulesUpdate = [
       return true;
     }),
 
-  body("logo").optional({ nullable: true }).isString().isURL(),
+  body("logo").optional({ nullable: false }).isString().isURL(),
 
   body("horarios_atencion")
-    .optional({ nullable: true })
+    .optional({ nullable: false })
     .custom((valor) => {
       try {
         if (typeof valor === "string") JSON.parse(valor);
@@ -166,19 +170,20 @@ export const emprendimientoValidationRulesUpdate = [
 
   body("direccion").optional().trim().isString().isLength({ max: 200 }),
 
-  body("telefono")
-    .optional({ nullable: true })
+  body("emprendimientoPhone")
+    .optional()
     .custom((valor) => {
-      if (!valor) return true;
-      if (typeof valor !== "string")
-        throw new Error("El teléfono debe ser una cadena");
-      if (!valor.match(/^\d{4}-\d{4}$/))
+      if (typeof valor !== "string" || valor.trim() === "") {
+        throw new Error("El teléfono no puede estar vacío");
+      }
+      if (!valor.match(/^\d{4}-\d{4}$/)) {
         throw new Error("El teléfono debe tener el formato XXXX-XXXX");
+      }
       return true;
     }),
 
   body("redes_sociales")
-    .optional({ nullable: true })
+    .optional({ nullable: false })
     .custom((valor) => {
       try {
         if (typeof valor === "string") JSON.parse(valor);
@@ -195,7 +200,11 @@ export const emprendimientoValidationRulesUpdate = [
 ];
 
 export const searchByNombreValidationRules = [
-  body("nombre").trim().notEmpty().isString().isLength({ max: 100 }),
+  query("nombre")
+    .trim()
+    .notEmpty()
+    .isString()
+    .isLength({ max: 100 }),
 ];
 
 export const searchByCategoriaValidationRules = [
