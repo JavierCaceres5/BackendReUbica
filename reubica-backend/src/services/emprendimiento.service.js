@@ -65,3 +65,13 @@ export async function getEmprendimientosByCategoriaPrincipal(categoria) {
   if (error) throw error;
   return data;
 }
+
+export async function getEmprendimientoByUserId(userId) {
+  const { data, error } = await supabase
+    .from("Comercio")
+    .select("*")
+    .eq("userID", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}

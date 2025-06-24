@@ -1,17 +1,17 @@
 import express from "express";
-import * as usersController from "../controllers/user.controller.js";
+import * as usersController from "../../controllers/user.controller.js";
 import {
   authenticateToken,
   authorizeRoles,
-} from "../middlewares/auth.middleware.js";
+} from "../../middlewares/auth.middleware.js";
 import {
   userRegisterValidationRules,
   userLoginValidationRules,
   changePasswordValidationRules,
-} from "../validators/user.validators.js";
-import validate from "../middlewares/validation.middleware.js";
-import upload from "../middlewares/uploadImage.middleware.js";
-import { uploadUserImageToSupabase } from "../middlewares/uploadImageSupabase.middleware.js";
+} from "../../validators/user.validators.js";
+import validate from "../../middlewares/validation.middleware.js";
+import upload from "../../middlewares/uploadImage.middleware.js";
+import { uploadUserImageToSupabase } from "../../middlewares/uploadImageSupabase.middleware.js";
 const router = express.Router();
 
 // Registro de usuario
