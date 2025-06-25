@@ -24,12 +24,10 @@ export const emprendimientoValidationRulesRegister = [
     .isLength({ max: 100 })
     .custom(nombreUnico),
 
-  body("descripcion")
-    .optional({ nullable: false })
-    .isString()
-    .isLength({ max: 500 }),
+  body("descripcion").notEmpty().isString().isLength({ max: 500 }),
 
   body("categoriasPrincipales")
+    .notEmpty()
     .isArray({ min: 1 })
     .custom((vals) => {
       const invalid = vals.filter(
@@ -43,6 +41,7 @@ export const emprendimientoValidationRulesRegister = [
     }),
 
   body("categoriasSecundarias")
+    .notEmpty()
     .isArray({ min: 1 })
     .custom((vals, { req }) => {
       const principales = req.body.categoriasPrincipales;
@@ -64,24 +63,12 @@ export const emprendimientoValidationRulesRegister = [
       return true;
     }),
 
-  body("logo").optional({ nullable: true }).isString().isURL(),
-
-  body("horarios_atencion")
-    .optional({ nullable: false })
-    .custom((valor) => {
-      try {
-        if (typeof valor === "string") JSON.parse(valor);
-        else if (typeof valor !== "object") throw new Error();
-        return true;
-      } catch {
-        throw new Error("Los horarios de atención deben ser un JSON válido");
-      }
-    }),
+  body("logo").optional(),
 
   body("direccion").trim().notEmpty().isString().isLength({ max: 200 }),
 
-  body("telefono")
-    .optional()
+  body("emprendimientoPhone")
+    .notEmpty()
     .custom((valor) => {
       if (typeof valor !== "string" || valor.trim() === "") {
         throw new Error("El teléfono no puede estar vacío");
@@ -93,7 +80,7 @@ export const emprendimientoValidationRulesRegister = [
     }),
 
   body("redes_sociales")
-    .optional({ nullable: false })
+    .optional()
     .custom((valor) => {
       try {
         if (typeof valor === "string") JSON.parse(valor);
@@ -112,10 +99,7 @@ export const emprendimientoValidationRulesRegister = [
 export const emprendimientoValidationRulesUpdate = [
   body("nombre").optional().trim().isString().isLength({ max: 100 }),
 
-  body("descripcion")
-    .optional({ nullable: false })
-    .isString()
-    .isLength({ max: 500 }),
+  body("descripcion").optional().isString().isLength({ max: 500 }),
 
   body("categoriasPrincipales")
     .optional()
@@ -154,19 +138,7 @@ export const emprendimientoValidationRulesUpdate = [
       return true;
     }),
 
-  body("logo").optional({ nullable: false }).isString().isURL(),
-
-  body("horarios_atencion")
-    .optional({ nullable: false })
-    .custom((valor) => {
-      try {
-        if (typeof valor === "string") JSON.parse(valor);
-        else if (typeof valor !== "object") throw new Error();
-        return true;
-      } catch {
-        throw new Error("Los horarios de atención deben ser un JSON válido");
-      }
-    }),
+  body("logo").optional().isString().isURL(),
 
   body("direccion").optional().trim().isString().isLength({ max: 200 }),
 
@@ -183,7 +155,7 @@ export const emprendimientoValidationRulesUpdate = [
     }),
 
   body("redes_sociales")
-    .optional({ nullable: false })
+    .optional()
     .custom((valor) => {
       try {
         if (typeof valor === "string") JSON.parse(valor);
@@ -200,11 +172,7 @@ export const emprendimientoValidationRulesUpdate = [
 ];
 
 export const searchByNombreValidationRules = [
-  query("nombre")
-    .trim()
-    .notEmpty()
-    .isString()
-    .isLength({ max: 100 }),
+  query("nombre").trim().notEmpty().isString().isLength({ max: 100 }),
 ];
 
 export const searchByCategoriaValidationRules = [
