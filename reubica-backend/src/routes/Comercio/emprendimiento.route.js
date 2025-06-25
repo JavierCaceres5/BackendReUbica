@@ -1,23 +1,28 @@
 import express from "express";
-import * as emprendimientoController from "../controllers/emprendimiento.controller.js";
+import * as emprendimientoController from "../../controllers/emprendimiento.controller.js";
 import {
   authenticateToken,
   authorizeRoles,
-} from "../middlewares/auth.middleware.js";
+} from "../../middlewares/auth.middleware.js";
 import {
   emprendimientoValidationRulesRegister,
   emprendimientoValidationRulesUpdate,
   searchByNombreValidationRules,
   searchByCategoriaValidationRules,
-} from "../validators/emprendimiento.validators.js";
-import validate from "../middlewares/validation.middleware.js";
-import upload from "../middlewares/uploadImage.middleware.js";
-import { parseArraysMiddleware } from "../middlewares/parseArray.middleware.js";
-import { uploadEmprendimientoImageToSupabase } from "../middlewares/uploadImageSupabase.middleware.js";
+} from "../../validators/emprendimiento.validators.js";
+import validate from "../../middlewares/validation.middleware.js";
+import upload from "../../middlewares/uploadImage.middleware.js";
+import { parseArraysMiddleware } from "../../middlewares/parseArray.middleware.js";
+import { uploadEmprendimientoImageToSupabase } from "../../middlewares/uploadImageSupabase.middleware.js";
 
 const router = express.Router();
 
-router.get("/", emprendimientoController.getEmprendimientosController);
+router.get(
+  "/",
+  authenticateToken,
+  authorizeRoles("admin", "cliente", "emprendedor"),
+  emprendimientoController.getEmprendimientosController
+);
 
 router.get(
   "/categoria",
@@ -28,6 +33,8 @@ router.get(
 
 router.get(
   "/nombre",
+  authenticateToken,
+  authorizeRoles("admin", "cliente", "emprendedor"),
   searchByNombreValidationRules,
   validate,
   emprendimientoController.searchEmprendimientosByNombreController
@@ -55,7 +62,7 @@ router.post(
 router.put(
   "/actualizarEmprendimiento/:id",
   authenticateToken,
-  authorizeRoles("admin", "emprendedor"),
+  authorizeRoles("admin"),
   upload.single("logo"),
   uploadEmprendimientoImageToSupabase,
   parseArraysMiddleware,
@@ -67,7 +74,7 @@ router.put(
 router.delete(
   "/deleteEmprendimiento/:id",
   authenticateToken,
-  authorizeRoles("admin", "emprendedor"),
+  authorizeRoles("admin"),
   emprendimientoController.deleteEmprendimientoController
 );
 

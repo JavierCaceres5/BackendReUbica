@@ -43,7 +43,6 @@ export async function createEmprendimientoController(req, res) {
       categoriasPrincipales,
       categoriasSecundarias,
       logo,
-      horarios_atencion,
       direccion,
       emprendimientoPhone,
       redes_sociales,
@@ -107,7 +106,6 @@ export async function createEmprendimientoController(req, res) {
       categoriasPrincipales,
       categoriasSecundarias,
       logo: logoFinal,
-      horarios_atencion: horarios_atencion || null,
       direccion,
       emprendimientoPhone: emprendimientoPhone || null,
       redes_sociales: redes_sociales || null,
@@ -156,7 +154,6 @@ export async function updateEmprendimientoController(req, res) {
       descripcion,
       categoriasPrincipales,
       categoriasSecundarias,
-      horarios_atencion,
       direccion,
       emprendimientoPhone,
       redes_sociales,
@@ -192,7 +189,6 @@ export async function updateEmprendimientoController(req, res) {
       descripcion,
       categoriasPrincipales,
       categoriasSecundarias,
-      horarios_atencion,
       direccion,
       emprendimientoPhone,
       redes_sociales,
@@ -319,21 +315,16 @@ export async function updateOwnEmprendimientoController(req, res) {
   try {
     const userId = req.user.id;
 
-    const { data: emprendimiento, error } = await supabase
-      .from("Comercio")
-      .select("*")
-      .eq("userID", userId)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!emprendimiento) return res.status(404).json({ error: "No tienes un emprendimiento registrado" });
+    const emprendimiento = await emprendimientoService.getEmprendimientoByUserId(userId);
+    if (!emprendimiento) {
+      return res.status(404).json({ error: "No tienes un emprendimiento registrado" });
+    }
 
     const {
       nombre,
       descripcion,
       categoriasPrincipales,
       categoriasSecundarias,
-      horarios_atencion,
       direccion,
       emprendimientoPhone,
       redes_sociales,
@@ -369,7 +360,6 @@ export async function updateOwnEmprendimientoController(req, res) {
       descripcion,
       categoriasPrincipales,
       categoriasSecundarias,
-      horarios_atencion,
       direccion,
       emprendimientoPhone,
       redes_sociales,
@@ -402,14 +392,10 @@ export async function deleteOwnEmprendimientoController(req, res) {
   try {
     const userId = req.user.id;
 
-    const { data: emprendimiento, error } = await supabase
-      .from("Comercio")
-      .select("*")
-      .eq("userID", userId)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!emprendimiento) return res.status(404).json({ error: "No tienes un emprendimiento registrado" });
+    const emprendimiento = await emprendimientoService.getEmprendimientoByUserId(userId);
+    if (!emprendimiento) {
+      return res.status(404).json({ error: "No tienes un emprendimiento registrado" });
+    }
 
     if (emprendimiento.logo) {
       const urlParts = emprendimiento.logo.split("/");
@@ -417,12 +403,7 @@ export async function deleteOwnEmprendimientoController(req, res) {
       await supabase.storage.from("emprendimientoslogos").remove([path]);
     }
 
-    const { error: deleteError } = await supabase
-      .from("Comercio")
-      .delete()
-      .eq("id", emprendimiento.id);
-
-    if (deleteError) throw deleteError;
+    await emprendimientoService.deleteEmprendimiento(emprendimiento.id);
 
     const { error: roleError } = await supabase
       .from("users")

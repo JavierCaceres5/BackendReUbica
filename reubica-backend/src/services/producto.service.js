@@ -58,3 +58,4 @@ export async function searchProductoByNombre(nombre) {
   if (error) throw error;
   return data;
 }
+
