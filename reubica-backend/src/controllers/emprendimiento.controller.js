@@ -4,6 +4,15 @@ import {
   categoriasPermitidasPrincipales,
   categoriasSecundariasPorPrincipal,
 } from "../utils/categorias.js";
+import { redesSociales } from "../utils/redesSociales.js";
+
+function validarRedesSociales(redes) {
+  if (!redes) return true;
+  if (typeof redes !== "object" || Array.isArray(redes)) return false;
+  return Object.keys(redes).every((key) =>
+    redesSociales.includes(key)
+  );
+}
 
 // Obtener todos los emprendimientos
 export async function getEmprendimientosController(req, res) {
@@ -60,17 +69,42 @@ export async function createEmprendimientoController(req, res) {
       !Array.isArray(categoriasPrincipales) ||
       categoriasPrincipales.length === 0 ||
       !direccion ||
+      !emprendimientoPhone ||
       latitud === undefined ||
-      latitud === null ||
-      longitud === undefined ||
-      longitud === null
+      longitud === undefined
     ) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
-    // Validar si ya existe un emprendimiento para este usuario (excepto si es admin)
+    if (!validarRedesSociales(redes_sociales)) {
+      return res.status(400).json({ error: "Redes sociales inválidas" });
+    }
+
+    const principalesInvalidas = categoriasPrincipales.filter(
+      (cat) => !categoriasPermitidasPrincipales.includes(cat)
+    );
+    if (principalesInvalidas.length > 0) {
+      return res.status(400).json({
+        error: `Categorías principales inválidas: ${principalesInvalidas.join(", ")}`,
+      });
+    }
+
+    if (categoriasSecundarias && categoriasPrincipales) {
+      const secundariasInvalidas = categoriasSecundarias.filter((sec) => {
+        return !categoriasPrincipales.some((principal) =>
+          (categoriasSecundariasPorPrincipal[principal] || []).includes(sec)
+        );
+      });
+
+      if (secundariasInvalidas.length > 0) {
+        return res.status(400).json({
+          error: `Categorías secundarias inválidas: ${secundariasInvalidas.join(", ")}`,
+        });
+      }
+    }
+
     if (userRole !== "admin") {
-      const { data: existingByUser, error: errorByUser } = await supabase
+      const { data: existingByUser } = await supabase
         .from("Comercio")
         .select("*")
         .eq("userID", userID)
@@ -81,11 +115,9 @@ export async function createEmprendimientoController(req, res) {
           .status(400)
           .json({ error: "Ya tiene un emprendimiento registrado" });
       }
-      if (errorByUser) throw errorByUser;
     }
 
-    // Validar si ya existe un emprendimiento con el mismo nombre
-    const { data: existingByName, error: errorByName } = await supabase
+    const { data: existingByName } = await supabase
       .from("Comercio")
       .select("*")
       .eq("nombre", nombre)
@@ -96,7 +128,6 @@ export async function createEmprendimientoController(req, res) {
         .status(400)
         .json({ error: "Ya existe un emprendimiento con ese nombre" });
     }
-    if (errorByName) throw errorByName;
 
     const logoFinal = req.emprendimientoLogoUrl || logo || null;
 
@@ -114,14 +145,11 @@ export async function createEmprendimientoController(req, res) {
       longitud,
     });
 
-    // Solo cambiar el rol si es un cliente creando su propio emprendimiento
     if (userRole === "cliente") {
-      const { error: roleUpdateError } = await supabase
+      await supabase
         .from("users")
         .update({ user_role: "emprendedor" })
         .eq("id", userID);
-
-      if (roleUpdateError) throw roleUpdateError;
     }
 
     res.status(201).json({
@@ -160,6 +188,10 @@ export async function updateEmprendimientoController(req, res) {
       latitud,
       longitud
     } = req.body;
+
+    if (redes_sociales && !validarRedesSociales(redes_sociales)) {
+      return res.status(400).json({ error: "Redes sociales inválidas" });
+    }
 
     if (categoriasPrincipales) {
       if (
@@ -201,7 +233,6 @@ export async function updateEmprendimientoController(req, res) {
       updatePayload.logo = req.emprendimientoLogoUrl;
     }
 
-    // Filtrar nulos o undefined
     const filteredPayload = Object.fromEntries(
       Object.entries(updatePayload).filter(([_, val]) => val !== undefined)
     );
@@ -219,7 +250,6 @@ export async function updateEmprendimientoController(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
-
 // Eliminar emprendimiento
 export async function deleteEmprendimientoController(req, res) {
   try {

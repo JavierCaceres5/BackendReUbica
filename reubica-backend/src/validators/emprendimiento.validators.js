@@ -4,6 +4,7 @@ import {
   categoriasPermitidasPrincipales,
   categoriasSecundariasPorPrincipal,
 } from "../utils/categorias.js";
+import { redesSociales } from "../utils/redesSociales.js";
 
 const nombreUnico = async (valor) => {
   const { data, error } = await supabase
@@ -13,6 +14,37 @@ const nombreUnico = async (valor) => {
     .limit(1);
   if (error) throw new Error("Error validando nombre");
   if (data && data.length > 0) throw new Error("El nombre del local ya existe");
+  return true;
+};
+
+const validarRedesSociales = (valor) => {
+  if (!valor || valor === "") return true; 
+
+  let parsed = valor;
+  if (typeof valor === "string") {
+    try {
+      parsed = JSON.parse(valor);
+    } catch {
+      throw new Error("Las redes sociales deben ser un JSON válido");
+    }
+  }
+
+  if (typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Las redes sociales deben ser un objeto JSON válido");
+  }
+
+  for (const key of Object.keys(parsed)) {
+    if (!redesSociales.includes(key)) {
+      throw new Error(`Red social no permitida: ${key}`);
+    }
+
+    const val = parsed[key];
+    const cleanVal = typeof val === "string" ? val.trim() : val;
+    if (cleanVal !== "" && cleanVal !== null && typeof cleanVal !== "string") {
+      throw new Error(`El valor de ${key} debe ser un string o vacío`);
+    }
+  }
+
   return true;
 };
 
@@ -79,17 +111,7 @@ export const emprendimientoValidationRulesRegister = [
       return true;
     }),
 
-  body("redes_sociales")
-    .optional()
-    .custom((valor) => {
-      try {
-        if (typeof valor === "string") JSON.parse(valor);
-        else if (typeof valor !== "object") throw new Error();
-        return true;
-      } catch {
-        throw new Error("Las redes sociales deben ser un JSON válido");
-      }
-    }),
+  body("redes_sociales").optional().custom(validarRedesSociales),
 
   body("latitud").notEmpty().isFloat(),
 
@@ -138,7 +160,7 @@ export const emprendimientoValidationRulesUpdate = [
       return true;
     }),
 
-  body("logo").optional().isString().isURL(),
+  body("logo").optional(), // <-- corregido también aquí
 
   body("direccion").optional().trim().isString().isLength({ max: 200 }),
 
@@ -154,17 +176,7 @@ export const emprendimientoValidationRulesUpdate = [
       return true;
     }),
 
-  body("redes_sociales")
-    .optional()
-    .custom((valor) => {
-      try {
-        if (typeof valor === "string") JSON.parse(valor);
-        else if (typeof valor !== "object") throw new Error();
-        return true;
-      } catch {
-        throw new Error("Las redes sociales deben ser un JSON válido");
-      }
-    }),
+  body("redes_sociales").optional().custom(validarRedesSociales),
 
   body("latitud").optional().isFloat(),
 
