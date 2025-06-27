@@ -1,17 +1,17 @@
 import express from "express";
-import * as productoController from "../../controllers/producto.controller.js";
+import * as productoController from "../../../controllers/producto.controller.js";
 import {
   authenticateToken,
   authorizeRoles,
-} from "../../middlewares/auth.middleware.js";
-import validate from "../../middlewares/validation.middleware.js";
-import upload from "../../middlewares/uploadImage.middleware.js";
-import { uploadProductImageToSupabase } from "../../middlewares/uploadImageSupabase.middleware.js";
+} from "../../../middlewares/auth.middleware.js";
+import validate from "../../../middlewares/validation.middleware.js";
+import upload from "../../../middlewares/uploadImage.middleware.js";
+import { uploadProductImageToSupabase } from "../../../middlewares/uploadImageSupabase.middleware.js";
 import {
   productoValidationRulesRegister,
   productoValidationRulesUpdate,
   searchProductoByNombreValidationRules,
-} from "../../validators/producto.validators.js";
+} from "../../../validators/producto.validators.js";
 
 const router = express.Router();
 
