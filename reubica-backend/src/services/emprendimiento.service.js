@@ -20,6 +20,7 @@ export async function createEmprendimiento(Emprendimiento) {
   const { data, error } = await supabase
     .from("Comercio")
     .insert(Emprendimiento)
+    .select()
     .single();
   if (error) throw error;
   return data;
@@ -61,6 +62,16 @@ export async function getEmprendimientosByCategoriaPrincipal(categoria) {
     .select("*")
     .contains("categoriasPrincipales", [categoria]);
 
+  if (error) throw error;
+  return data;
+}
+
+export async function getEmprendimientoByUserId(userId) {
+  const { data, error } = await supabase
+    .from("Comercio")
+    .select("*")
+    .eq("userID", userId)
+    .maybeSingle();
   if (error) throw error;
   return data;
 }

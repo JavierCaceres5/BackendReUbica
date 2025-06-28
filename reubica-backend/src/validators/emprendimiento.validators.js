@@ -4,6 +4,7 @@ import {
   categoriasPermitidasPrincipales,
   categoriasSecundariasPorPrincipal,
 } from "../utils/categorias.js";
+import { redesSociales } from "../utils/redesSociales.js";
 
 const nombreUnico = async (valor) => {
   const { data, error } = await supabase
@@ -16,6 +17,37 @@ const nombreUnico = async (valor) => {
   return true;
 };
 
+const validarRedesSociales = (valor) => {
+  if (!valor || valor === "") return true; 
+
+  let parsed = valor;
+  if (typeof valor === "string") {
+    try {
+      parsed = JSON.parse(valor);
+    } catch {
+      throw new Error("Las redes sociales deben ser un JSON válido");
+    }
+  }
+
+  if (typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Las redes sociales deben ser un objeto JSON válido");
+  }
+
+  for (const key of Object.keys(parsed)) {
+    if (!redesSociales.includes(key)) {
+      throw new Error(`Red social no permitida: ${key}`);
+    }
+
+    const val = parsed[key];
+    const cleanVal = typeof val === "string" ? val.trim() : val;
+    if (cleanVal !== "" && cleanVal !== null && typeof cleanVal !== "string") {
+      throw new Error(`El valor de ${key} debe ser un string o vacío`);
+    }
+  }
+
+  return true;
+};
+
 export const emprendimientoValidationRulesRegister = [
   body("nombre")
     .trim()
@@ -24,12 +56,10 @@ export const emprendimientoValidationRulesRegister = [
     .isLength({ max: 100 })
     .custom(nombreUnico),
 
-  body("descripcion")
-    .optional({ nullable: false })
-    .isString()
-    .isLength({ max: 500 }),
+  body("descripcion").notEmpty().isString().isLength({ max: 500 }),
 
   body("categoriasPrincipales")
+    .notEmpty()
     .isArray({ min: 1 })
     .custom((vals) => {
       const invalid = vals.filter(
@@ -43,6 +73,7 @@ export const emprendimientoValidationRulesRegister = [
     }),
 
   body("categoriasSecundarias")
+    .notEmpty()
     .isArray({ min: 1 })
     .custom((vals, { req }) => {
       const principales = req.body.categoriasPrincipales;
@@ -64,24 +95,12 @@ export const emprendimientoValidationRulesRegister = [
       return true;
     }),
 
-  body("logo").optional({ nullable: true }).isString().isURL(),
-
-  body("horarios_atencion")
-    .optional({ nullable: false })
-    .custom((valor) => {
-      try {
-        if (typeof valor === "string") JSON.parse(valor);
-        else if (typeof valor !== "object") throw new Error();
-        return true;
-      } catch {
-        throw new Error("Los horarios de atención deben ser un JSON válido");
-      }
-    }),
+  body("logo").optional(),
 
   body("direccion").trim().notEmpty().isString().isLength({ max: 200 }),
 
-  body("telefono")
-    .optional()
+  body("emprendimientoPhone")
+    .notEmpty()
     .custom((valor) => {
       if (typeof valor !== "string" || valor.trim() === "") {
         throw new Error("El teléfono no puede estar vacío");
@@ -92,17 +111,7 @@ export const emprendimientoValidationRulesRegister = [
       return true;
     }),
 
-  body("redes_sociales")
-    .optional({ nullable: false })
-    .custom((valor) => {
-      try {
-        if (typeof valor === "string") JSON.parse(valor);
-        else if (typeof valor !== "object") throw new Error();
-        return true;
-      } catch {
-        throw new Error("Las redes sociales deben ser un JSON válido");
-      }
-    }),
+  body("redes_sociales").optional().custom(validarRedesSociales),
 
   body("latitud").notEmpty().isFloat(),
 
@@ -112,10 +121,7 @@ export const emprendimientoValidationRulesRegister = [
 export const emprendimientoValidationRulesUpdate = [
   body("nombre").optional().trim().isString().isLength({ max: 100 }),
 
-  body("descripcion")
-    .optional({ nullable: false })
-    .isString()
-    .isLength({ max: 500 }),
+  body("descripcion").optional().isString().isLength({ max: 500 }),
 
   body("categoriasPrincipales")
     .optional()
@@ -154,19 +160,7 @@ export const emprendimientoValidationRulesUpdate = [
       return true;
     }),
 
-  body("logo").optional({ nullable: false }).isString().isURL(),
-
-  body("horarios_atencion")
-    .optional({ nullable: false })
-    .custom((valor) => {
-      try {
-        if (typeof valor === "string") JSON.parse(valor);
-        else if (typeof valor !== "object") throw new Error();
-        return true;
-      } catch {
-        throw new Error("Los horarios de atención deben ser un JSON válido");
-      }
-    }),
+  body("logo").optional(), // <-- corregido también aquí
 
   body("direccion").optional().trim().isString().isLength({ max: 200 }),
 
@@ -182,17 +176,7 @@ export const emprendimientoValidationRulesUpdate = [
       return true;
     }),
 
-  body("redes_sociales")
-    .optional({ nullable: false })
-    .custom((valor) => {
-      try {
-        if (typeof valor === "string") JSON.parse(valor);
-        else if (typeof valor !== "object") throw new Error();
-        return true;
-      } catch {
-        throw new Error("Las redes sociales deben ser un JSON válido");
-      }
-    }),
+  body("redes_sociales").optional().custom(validarRedesSociales),
 
   body("latitud").optional().isFloat(),
 
@@ -200,11 +184,7 @@ export const emprendimientoValidationRulesUpdate = [
 ];
 
 export const searchByNombreValidationRules = [
-  query("nombre")
-    .trim()
-    .notEmpty()
-    .isString()
-    .isLength({ max: 100 }),
+  query("nombre").trim().notEmpty().isString().isLength({ max: 100 }),
 ];
 
 export const searchByCategoriaValidationRules = [
