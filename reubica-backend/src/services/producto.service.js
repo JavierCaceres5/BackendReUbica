@@ -16,6 +16,16 @@ export async function getProductoById(id) {
   return data;
 }
 
+export async function getProductosByEmprendimientoID(emprendimientoID) {
+  const { data, error } = await supabase
+    .from("Productos")
+    .select("*")
+    .eq("emprendimientoID", emprendimientoID);
+
+  if (error) throw error;
+  return data;
+}
+
 export async function createProducto(Producto) {
   const { data, error } = await supabase
     .from("Productos")
