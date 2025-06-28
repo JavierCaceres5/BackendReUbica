@@ -104,7 +104,7 @@ router.post(
 router.delete(
   "/:productoID/ratings",
   authenticateToken,
-  authorizeRoles("cliente", "emprendedor", "admin"),
+  authorizeRoles("admin"),
   deleteRatingValidator,
   validate,
   ratingController.deleteRatingController
