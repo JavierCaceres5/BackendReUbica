@@ -194,15 +194,9 @@ export async function createEmprendimientoController(req, res) {
       return res.status(201).json({
         message: "Emprendimiento creado exitosamente",
         emprendimiento: newEmprendimiento,
-        token: newToken,
+        updatedToken: newToken,
       });
     }
-
-    // Si era admin o emprendedor, no se actualiza token
-    res.status(201).json({
-      message: "Emprendimiento creado exitosamente",
-      emprendimiento: newEmprendimiento,
-    });
   } catch (error) {
     console.error("Error creando emprendimiento:", error);
     res.status(500).json({ error: error.message });
@@ -501,7 +495,7 @@ export async function updateOwnEmprendimientoController(req, res) {
           .json({ error: "Ya existe un emprendimiento con ese nombre" });
       }
     }
-    
+
     const updatePayload = {
       nombre,
       descripcion,
@@ -562,10 +556,25 @@ export async function deleteOwnEmprendimientoController(req, res) {
       .from("users")
       .update({ user_role: "cliente" })
       .eq("id", userId);
-
     if (roleError) throw roleError;
 
-    res.status(200).json({ message: "Emprendimiento eliminado exitosamente." });
+    const { data: updatedUser, error: fetchError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+    if (fetchError) throw fetchError;
+
+    const newToken = generateToken({
+      id: updatedUser.id,
+      email: updatedUser.email,
+      role: updatedUser.user_role,
+    });
+
+    res.status(200).json({
+      message: "Emprendimiento eliminado exitosamente.",
+      updatedToken: newToken,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
