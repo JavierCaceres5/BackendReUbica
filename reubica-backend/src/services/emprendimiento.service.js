@@ -10,7 +10,7 @@ export async function getEmprendimientoById(id) {
   const { data, error } = await supabase
     .from("Comercio")
     .select("*")
-    .eq("id", id)
+    .eq("userID", id)
     .maybeSingle();
   if (error) throw error;
   return data;

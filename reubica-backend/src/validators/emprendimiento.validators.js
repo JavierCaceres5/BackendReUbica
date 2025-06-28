@@ -5,6 +5,7 @@ import {
   categoriasSecundariasPorPrincipal,
 } from "../utils/categorias.js";
 import { redesSociales } from "../utils/redesSociales.js";
+import validator from "validator";
 
 const nombreUnico = async (valor) => {
   const { data, error } = await supabase
@@ -18,7 +19,7 @@ const nombreUnico = async (valor) => {
 };
 
 const validarRedesSociales = (valor) => {
-  if (!valor || valor === "") return true; 
+  if (!valor || valor === "") return true;
 
   let parsed = valor;
   if (typeof valor === "string") {
@@ -40,8 +41,22 @@ const validarRedesSociales = (valor) => {
 
     const val = parsed[key];
     const cleanVal = typeof val === "string" ? val.trim() : val;
-    if (cleanVal !== "" && cleanVal !== null && typeof cleanVal !== "string") {
-      throw new Error(`El valor de ${key} debe ser un string o vacío`);
+
+    if (cleanVal !== "" && cleanVal !== null) {
+      if (typeof cleanVal !== "string") {
+        throw new Error(`El valor de ${key} debe ser un string o vacío`);
+      }
+
+      if (
+        !validator.isURL(cleanVal, {
+          protocols: ["http", "https"],
+          require_protocol: true,
+        })
+      ) {
+        throw new Error(
+          `El valor de ${key} debe ser una URL válida que empiece con http:// o https://`
+        );
+      }
     }
   }
 
@@ -52,15 +67,26 @@ export const emprendimientoValidationRulesRegister = [
   body("nombre")
     .trim()
     .notEmpty()
+    .withMessage("El nombre del local es requerido")
     .isString()
+    .withMessage("El nombre debe ser un texto")
     .isLength({ max: 100 })
+    .withMessage("El nombre no puede tener más de 100 caracteres")
     .custom(nombreUnico),
 
-  body("descripcion").notEmpty().isString().isLength({ max: 500 }),
+  body("descripcion")
+    .notEmpty()
+    .withMessage("La descripción es requerida")
+    .isString()
+    .withMessage("La descripción debe ser un texto")
+    .isLength({ max: 500 })
+    .withMessage("La descripción no puede superar los 500 caracteres"),
 
   body("categoriasPrincipales")
     .notEmpty()
+    .withMessage("Debe indicar al menos una categoría principal")
     .isArray({ min: 1 })
+    .withMessage("Las categorías principales deben ser un arreglo")
     .custom((vals) => {
       const invalid = vals.filter(
         (v) => !categoriasPermitidasPrincipales.includes(v)
@@ -74,7 +100,9 @@ export const emprendimientoValidationRulesRegister = [
 
   body("categoriasSecundarias")
     .notEmpty()
+    .withMessage("Debe indicar al menos una categoría secundaria")
     .isArray({ min: 1 })
+    .withMessage("Las categorías secundarias deben ser un arreglo")
     .custom((vals, { req }) => {
       const principales = req.body.categoriasPrincipales;
       if (!Array.isArray(principales) || principales.length === 0)
@@ -97,10 +125,18 @@ export const emprendimientoValidationRulesRegister = [
 
   body("logo").optional(),
 
-  body("direccion").trim().notEmpty().isString().isLength({ max: 200 }),
+  body("direccion")
+    .trim()
+    .notEmpty()
+    .withMessage("La dirección es requerida")
+    .isString()
+    .withMessage("La dirección debe ser un texto")
+    .isLength({ max: 200 })
+    .withMessage("La dirección no puede superar los 200 caracteres"),
 
   body("emprendimientoPhone")
     .notEmpty()
+    .withMessage("El teléfono del emprendimiento es obligatorio")
     .custom((valor) => {
       if (typeof valor !== "string" || valor.trim() === "") {
         throw new Error("El teléfono no puede estar vacío");
@@ -113,19 +149,39 @@ export const emprendimientoValidationRulesRegister = [
 
   body("redes_sociales").optional().custom(validarRedesSociales),
 
-  body("latitud").notEmpty().isFloat(),
+  body("latitud")
+    .notEmpty()
+    .withMessage("La latitud es requerida")
+    .isFloat()
+    .withMessage("La latitud debe ser un número válido"),
 
-  body("longitud").notEmpty().isFloat(),
+  body("longitud")
+    .notEmpty()
+    .withMessage("La longitud es requerida")
+    .isFloat()
+    .withMessage("La longitud debe ser un número válido"),
 ];
 
 export const emprendimientoValidationRulesUpdate = [
-  body("nombre").optional().trim().isString().isLength({ max: 100 }),
+  body("nombre")
+    .optional()
+    .trim()
+    .isString()
+    .withMessage("El nombre debe ser un texto")
+    .isLength({ max: 100 })
+    .withMessage("El nombre no puede tener más de 100 caracteres"),
 
-  body("descripcion").optional().isString().isLength({ max: 500 }),
+  body("descripcion")
+    .optional()
+    .isString()
+    .withMessage("La descripción debe ser un texto")
+    .isLength({ max: 500 })
+    .withMessage("La descripción no puede superar los 500 caracteres"),
 
   body("categoriasPrincipales")
     .optional()
     .isArray({ min: 1 })
+    .withMessage("Las categorías principales deben ser un arreglo")
     .custom((vals) => {
       const invalid = vals.filter(
         (v) => !categoriasPermitidasPrincipales.includes(v)
@@ -140,11 +196,11 @@ export const emprendimientoValidationRulesUpdate = [
   body("categoriasSecundarias")
     .optional()
     .isArray({ min: 1 })
+    .withMessage("Las categorías secundarias deben ser un arreglo")
     .custom((vals, { req }) => {
       const principales = req.body.categoriasPrincipales;
       if (!Array.isArray(principales) || principales.length === 0)
         throw new Error("Debe especificar categorías principales");
-
       for (const principal of principales) {
         const secundariasValidas =
           categoriasSecundariasPorPrincipal[principal] || [];
@@ -160,9 +216,15 @@ export const emprendimientoValidationRulesUpdate = [
       return true;
     }),
 
-  body("logo").optional(), // <-- corregido también aquí
+  body("logo").optional(),
 
-  body("direccion").optional().trim().isString().isLength({ max: 200 }),
+  body("direccion")
+    .optional()
+    .trim()
+    .isString()
+    .withMessage("La dirección debe ser un texto")
+    .isLength({ max: 200 })
+    .withMessage("La dirección no puede superar los 200 caracteres"),
 
   body("emprendimientoPhone")
     .optional()
@@ -178,13 +240,25 @@ export const emprendimientoValidationRulesUpdate = [
 
   body("redes_sociales").optional().custom(validarRedesSociales),
 
-  body("latitud").optional().isFloat(),
-
-  body("longitud").optional().isFloat(),
+  body("latitud")
+    .optional()
+    .isFloat()
+    .withMessage("La latitud debe ser un número válido"),
+  body("longitud")
+    .optional()
+    .isFloat()
+    .withMessage("La longitud debe ser un número válido"),
 ];
 
 export const searchByNombreValidationRules = [
-  query("nombre").trim().notEmpty().isString().isLength({ max: 100 }),
+  query("nombre")
+    .trim()
+    .notEmpty()
+    .withMessage("El nombre es requerido")
+    .isString()
+    .withMessage("El nombre debe ser un texto")
+    .isLength({ max: 100 })
+    .withMessage("El nombre no puede superar los 100 caracteres"),
 ];
 
 export const searchByCategoriaValidationRules = [

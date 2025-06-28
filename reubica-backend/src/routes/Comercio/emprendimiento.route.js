@@ -41,6 +41,13 @@ router.get(
 );
 
 router.get(
+  "/miEmprendimiento",
+  authenticateToken,
+  authorizeRoles("emprendedor"),
+  emprendimientoController.getOwnEmprendimientoController
+);
+
+router.get(
   "/:id",
   authenticateToken,
   authorizeRoles("admin"),
