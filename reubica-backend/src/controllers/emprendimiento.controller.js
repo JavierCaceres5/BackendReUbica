@@ -5,13 +5,12 @@ import {
   categoriasSecundariasPorPrincipal,
 } from "../utils/categorias.js";
 import { redesSociales } from "../utils/redesSociales.js";
+import { generateToken } from "../utils/jwt.js";
 
 function validarRedesSociales(redes) {
   if (!redes) return true;
   if (typeof redes !== "object" || Array.isArray(redes)) return false;
-  return Object.keys(redes).every((key) =>
-    redesSociales.includes(key)
-  );
+  return Object.keys(redes).every((key) => redesSociales.includes(key));
 }
 
 // Obtener todos los emprendimientos
@@ -47,7 +46,8 @@ export async function getOwnEmprendimientoController(req, res) {
   try {
     const userId = req.user.id;
 
-    const emprendimiento = await emprendimientoService.getEmprendimientoByUserId(userId);
+    const emprendimiento =
+      await emprendimientoService.getEmprendimientoByUserId(userId);
 
     if (!emprendimiento) {
       return res
@@ -103,7 +103,9 @@ export async function createEmprendimientoController(req, res) {
     );
     if (principalesInvalidas.length > 0) {
       return res.status(400).json({
-        error: `Categorías principales inválidas: ${principalesInvalidas.join(", ")}`,
+        error: `Categorías principales inválidas: ${principalesInvalidas.join(
+          ", "
+        )}`,
       });
     }
 
@@ -116,11 +118,14 @@ export async function createEmprendimientoController(req, res) {
 
       if (secundariasInvalidas.length > 0) {
         return res.status(400).json({
-          error: `Categorías secundarias inválidas: ${secundariasInvalidas.join(", ")}`,
+          error: `Categorías secundarias inválidas: ${secundariasInvalidas.join(
+            ", "
+          )}`,
         });
       }
     }
 
+    // Validar unicidad
     if (userRole !== "admin") {
       const { data: existingByUser } = await supabase
         .from("Comercio")
@@ -163,18 +168,43 @@ export async function createEmprendimientoController(req, res) {
       longitud,
     });
 
+    // Si era cliente, actualizar rol y emite un nuevo token
     if (userRole === "cliente") {
-      await supabase
+      const { error: roleError } = await supabase
         .from("users")
         .update({ user_role: "emprendedor" })
         .eq("id", userID);
+
+      if (roleError) throw roleError;
+
+      const { data: updatedUser, error: fetchError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userID)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const newToken = generateToken({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        role: updatedUser.user_role,
+      });
+
+      return res.status(201).json({
+        message: "Emprendimiento creado exitosamente",
+        emprendimiento: newEmprendimiento,
+        token: newToken,
+      });
     }
 
+    // Si era admin o emprendedor, no se actualiza token
     res.status(201).json({
       message: "Emprendimiento creado exitosamente",
       emprendimiento: newEmprendimiento,
     });
   } catch (error) {
+    console.error("Error creando emprendimiento:", error);
     res.status(500).json({ error: error.message });
   }
 }
@@ -186,13 +216,17 @@ export async function updateEmprendimientoController(req, res) {
     const userIdFromToken = req.user.id;
     const userRole = req.user.role;
 
-    const emprendimiento = await emprendimientoService.getEmprendimientoById(emprendimientoId);
+    const emprendimiento = await emprendimientoService.getEmprendimientoById(
+      emprendimientoId
+    );
     if (!emprendimiento) {
       return res.status(404).json({ error: "Emprendimiento no encontrado" });
     }
 
     if (userRole !== "admin" && emprendimiento.userID !== userIdFromToken) {
-      return res.status(403).json({ error: "No autorizado para actualizar este emprendimiento" });
+      return res
+        .status(403)
+        .json({ error: "No autorizado para actualizar este emprendimiento" });
     }
 
     const {
@@ -204,7 +238,7 @@ export async function updateEmprendimientoController(req, res) {
       emprendimientoPhone,
       redes_sociales,
       latitud,
-      longitud
+      longitud,
     } = req.body;
 
     if (redes_sociales && !validarRedesSociales(redes_sociales)) {
@@ -214,23 +248,44 @@ export async function updateEmprendimientoController(req, res) {
     if (categoriasPrincipales) {
       if (
         !Array.isArray(categoriasPrincipales) ||
-        !categoriasPrincipales.every(cat => categoriasPermitidasPrincipales.includes(cat))
+        !categoriasPrincipales.every((cat) =>
+          categoriasPermitidasPrincipales.includes(cat)
+        )
       ) {
-        return res.status(400).json({ error: "Categorías principales inválidas" });
+        return res
+          .status(400)
+          .json({ error: "Categorías principales inválidas" });
       }
     }
 
     if (categoriasSecundarias && categoriasPrincipales) {
-      const secundariasInvalidas = categoriasSecundarias.filter(sec => {
-        return !categoriasPrincipales.some(principal =>
+      const secundariasInvalidas = categoriasSecundarias.filter((sec) => {
+        return !categoriasPrincipales.some((principal) =>
           (categoriasSecundariasPorPrincipal[principal] || []).includes(sec)
         );
       });
 
       if (secundariasInvalidas.length > 0) {
         return res.status(400).json({
-          error: `Categorías secundarias inválidas: ${secundariasInvalidas.join(", ")}`
+          error: `Categorías secundarias inválidas: ${secundariasInvalidas.join(
+            ", "
+          )}`,
         });
+      }
+    }
+
+    if (nombre && nombre !== emprendimiento.nombre) {
+      const { data: existingByName } = await supabase
+        .from("Comercio")
+        .select("id")
+        .eq("nombre", nombre)
+        .neq("id", emprendimiento.id) // se escluye el emprendimiento a actualizar
+        .maybeSingle();
+
+      if (existingByName) {
+        return res
+          .status(400)
+          .json({ error: "Ya existe un emprendimiento con ese nombre" });
       }
     }
 
@@ -244,11 +299,27 @@ export async function updateEmprendimientoController(req, res) {
       redes_sociales,
       latitud,
       longitud,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
 
     if (req.emprendimientoLogoUrl) {
       updatePayload.logo = req.emprendimientoLogoUrl;
+    }
+
+    // Validar nombre duplicado si se proporciona uno nuevo distinto al actual
+    if (nombre && nombre !== emprendimiento.nombre) {
+      const { data: existingByName } = await supabase
+        .from("Comercio")
+        .select("id")
+        .eq("nombre", nombre)
+        .neq("id", emprendimiento.id) // excluye el actual
+        .maybeSingle();
+
+      if (existingByName) {
+        return res
+          .status(400)
+          .json({ error: "Ya existe un emprendimiento con ese nombre" });
+      }
     }
 
     const filteredPayload = Object.fromEntries(
@@ -262,7 +333,7 @@ export async function updateEmprendimientoController(req, res) {
 
     res.status(200).json({
       message: "Emprendimiento actualizado exitosamente",
-      emprendimiento: updated
+      emprendimiento: updated,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -275,14 +346,18 @@ export async function deleteEmprendimientoController(req, res) {
     const userIdFromToken = req.user.id;
     const userRole = req.user.role;
 
-    const emprendimiento = await emprendimientoService.getEmprendimientoById(emprendimientoId);
+    const emprendimiento = await emprendimientoService.getEmprendimientoById(
+      emprendimientoId
+    );
     if (!emprendimiento) {
       return res.status(404).json({ error: "Emprendimiento no encontrado" });
     }
 
     // Permisos
     if (userRole !== "admin" && emprendimiento.userID !== userIdFromToken) {
-      return res.status(403).json({ error: "No autorizado para eliminar este emprendimiento" });
+      return res
+        .status(403)
+        .json({ error: "No autorizado para eliminar este emprendimiento" });
     }
 
     // Si tiene imagen, eliminarla del bucket
@@ -298,7 +373,7 @@ export async function deleteEmprendimientoController(req, res) {
       .eq("id", emprendimientoId);
     if (deleteError) throw deleteError;
 
-     // Cambiar rol del emprendedor a cliente 
+    // Cambiar rol del emprendedor a cliente
     if (userRole !== "admin") {
       const { error: roleError } = await supabase
         .from("users")
@@ -363,9 +438,12 @@ export async function updateOwnEmprendimientoController(req, res) {
   try {
     const userId = req.user.id;
 
-    const emprendimiento = await emprendimientoService.getEmprendimientoByUserId(userId);
+    const emprendimiento =
+      await emprendimientoService.getEmprendimientoByUserId(userId);
     if (!emprendimiento) {
-      return res.status(404).json({ error: "No tienes un emprendimiento registrado" });
+      return res
+        .status(404)
+        .json({ error: "No tienes un emprendimiento registrado" });
     }
 
     const {
@@ -377,32 +455,53 @@ export async function updateOwnEmprendimientoController(req, res) {
       emprendimientoPhone,
       redes_sociales,
       latitud,
-      longitud
+      longitud,
     } = req.body;
 
     if (categoriasPrincipales) {
       if (
         !Array.isArray(categoriasPrincipales) ||
-        !categoriasPrincipales.every(cat => categoriasPermitidasPrincipales.includes(cat))
+        !categoriasPrincipales.every((cat) =>
+          categoriasPermitidasPrincipales.includes(cat)
+        )
       ) {
-        return res.status(400).json({ error: "Categorías principales inválidas" });
+        return res
+          .status(400)
+          .json({ error: "Categorías principales inválidas" });
       }
     }
 
     if (categoriasSecundarias && categoriasPrincipales) {
-      const secundariasInvalidas = categoriasSecundarias.filter(sec => {
-        return !categoriasPrincipales.some(principal =>
+      const secundariasInvalidas = categoriasSecundarias.filter((sec) => {
+        return !categoriasPrincipales.some((principal) =>
           (categoriasSecundariasPorPrincipal[principal] || []).includes(sec)
         );
       });
 
       if (secundariasInvalidas.length > 0) {
         return res.status(400).json({
-          error: `Categorías secundarias inválidas: ${secundariasInvalidas.join(", ")}`
+          error: `Categorías secundarias inválidas: ${secundariasInvalidas.join(
+            ", "
+          )}`,
         });
       }
     }
 
+    if (nombre && nombre !== emprendimiento.nombre) {
+      const { data: existingByName } = await supabase
+        .from("Comercio")
+        .select("id")
+        .eq("nombre", nombre)
+        .neq("id", emprendimiento.id) // se escluye el emprendimiento a actualizar
+        .maybeSingle();
+
+      if (existingByName) {
+        return res
+          .status(400)
+          .json({ error: "Ya existe un emprendimiento con ese nombre" });
+      }
+    }
+    
     const updatePayload = {
       nombre,
       descripcion,
@@ -413,7 +512,7 @@ export async function updateOwnEmprendimientoController(req, res) {
       redes_sociales,
       latitud,
       longitud,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
 
     if (req.emprendimientoLogoUrl) {
@@ -424,11 +523,14 @@ export async function updateOwnEmprendimientoController(req, res) {
       Object.entries(updatePayload).filter(([_, val]) => val !== undefined)
     );
 
-    const updated = await emprendimientoService.updateEmprendimiento(emprendimiento.id, filteredPayload);
+    const updated = await emprendimientoService.updateEmprendimiento(
+      emprendimiento.id,
+      filteredPayload
+    );
 
     res.status(200).json({
       message: "Emprendimiento actualizado exitosamente",
-      emprendimiento: updated
+      emprendimiento: updated,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -440,9 +542,12 @@ export async function deleteOwnEmprendimientoController(req, res) {
   try {
     const userId = req.user.id;
 
-    const emprendimiento = await emprendimientoService.getEmprendimientoByUserId(userId);
+    const emprendimiento =
+      await emprendimientoService.getEmprendimientoByUserId(userId);
     if (!emprendimiento) {
-      return res.status(404).json({ error: "No tienes un emprendimiento registrado" });
+      return res
+        .status(404)
+        .json({ error: "No tienes un emprendimiento registrado" });
     }
 
     if (emprendimiento.logo) {
