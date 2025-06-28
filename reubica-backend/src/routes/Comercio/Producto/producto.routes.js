@@ -1,5 +1,6 @@
 import express from "express";
 import * as productoController from "../../../controllers/producto.controller.js";
+import * as ratingController from "../../../controllers/ratings.controller.js"
 import {
   authenticateToken,
   authorizeRoles,
@@ -12,6 +13,7 @@ import {
   productoValidationRulesUpdate,
   searchProductoByNombreValidationRules,
 } from "../../../validators/producto.validators.js";
+import { createRatingValidator, deleteRatingValidator } from "../../../validators/ratings.validators.js"
 
 const router = express.Router();
 
@@ -31,6 +33,21 @@ router.get(
   searchProductoByNombreValidationRules,
   validate,
   productoController.searchProductosByNombreController
+);
+
+// Obtener productos por emprendimientoID
+router.get(
+  "/emprendimiento/:id",
+  authenticateToken,
+  authorizeRoles("admin", "cliente", "emprendedor"),
+  productoController.getProductosByEmprendimientoController
+);
+
+router.get(
+  "/emprendimiento/:id/ratings",
+  authenticateToken,
+  authorizeRoles("admin", "emprendedor", "cliente"),
+  ratingController.getRatingsByEmprendimientoController
 );
 
 // Obtener por ID
@@ -71,6 +88,26 @@ router.delete(
   authenticateToken,
   authorizeRoles("emprendedor", "admin"),
   productoController.deleteProductoController
+);
+
+// Crear una valoración para un producto
+router.post(
+  "/:productoID/ratings",
+  authenticateToken,
+  authorizeRoles("cliente", "emprendedor", "admin"), 
+  createRatingValidator,
+  validate,
+  ratingController.createRatingController
+);
+
+// Eliminar la valoración del usuario actual para un producto
+router.delete(
+  "/:productoID/ratings",
+  authenticateToken,
+  authorizeRoles("cliente", "emprendedor", "admin"),
+  deleteRatingValidator,
+  validate,
+  ratingController.deleteRatingController
 );
 
 export default router;

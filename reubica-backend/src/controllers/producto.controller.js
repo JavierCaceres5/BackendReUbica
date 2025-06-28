@@ -163,3 +163,22 @@ export async function searchProductosByNombreController(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
+
+// Obtener todos los productos de un emprendimiento
+export async function getProductosByEmprendimientoController(req, res) {
+  try {
+    const { id } = req.params;
+
+    const { data: productos, error } = await supabase
+      .from("Productos")
+      .select("*")
+      .eq("emprendimientoID", id);
+
+    if (error) throw error;
+
+    res.json(productos);
+  } catch (error) {
+    console.error("Error al obtener productos por emprendimiento:", error);
+    res.status(500).json({ error: "Error al obtener productos" });
+  }
+}

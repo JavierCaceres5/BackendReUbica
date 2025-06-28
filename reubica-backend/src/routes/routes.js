@@ -9,6 +9,8 @@ const router = express.Router();
 router.use("/users", usersRoutes);
 router.use("/emprendimientos", emprendimientoRoutes);
 router.use("/productos", productoRoutes); 
-router.use("/favoritos", favoritosRoutes)
+router.use("/favoritos", favoritosRoutes);
+
+
 
 export default router;
