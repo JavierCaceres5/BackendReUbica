@@ -16,15 +16,7 @@ export async function getUsers(req, res) {
 
 export async function getUserById(req, res) {
   try {
-    const userRole = req.user.role;
-    const userIdFromToken = req.user.id;
     const userIdFromParams = req.params.id;
-
-    if (userRole !== "admin" && userIdFromToken !== userIdFromParams) {
-      return res
-        .status(403)
-        .json({ error: "No autorizado para ver este usuario" });
-    }
 
     const { data, error } = await supabase
       .from("users")
@@ -33,6 +25,7 @@ export async function getUserById(req, res) {
       .maybeSingle();
 
     if (error) throw error;
+    if (!data) return res.status(404).json({ error: "Usuario no encontrado" });
 
     res.status(200).json(data);
   } catch (error) {
