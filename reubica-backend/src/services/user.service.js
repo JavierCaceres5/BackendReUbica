@@ -24,13 +24,16 @@ export async function createUser(user) {
 }
 
 export async function updateUser(id, user) {
-  const { data, error } = await supabase
-    .from("users")
-    .update(user)
-    .eq("id", id)
+  const plainUser = JSON.parse(JSON.stringify(user));
+  const res = await supabase
+    .from('users')
+    .update(plainUser)
+    .eq('id', id)
+    .select()
     .single();
-  if (error) throw error;
-  return data;
+
+  if (res.error) throw res.error;
+  return res.data;
 }
 
 export async function deleteUser(id) {
