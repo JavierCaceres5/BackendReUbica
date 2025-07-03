@@ -72,7 +72,10 @@ router.put(
   '/updateProfile',
   authenticateToken,
   authorizeRoles('cliente', 'emprendedor'),
-  usersController.updateOwnUserController
+  upload.single("user_icon"),             
+  uploadUserImageToSupabase,               
+  usersController.updateOwnUserController  
 );
+
 
 export default router;

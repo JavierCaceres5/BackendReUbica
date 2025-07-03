@@ -19,10 +19,18 @@ export async function createUser(user) {
 }
 
 export async function updateUser(id, user) {
-  const { data, error } = await supabase.from('users').update(user).eq('id', id).single();
-  if (error) throw error;
-  return data;
+  const plainUser = JSON.parse(JSON.stringify(user));
+  const res = await supabase
+    .from('users')
+    .update(plainUser)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (res.error) throw res.error;
+  return res.data;
 }
+
 
 export async function deleteUser(id) {
   const { data, error } = await supabase.from('users').delete().eq('id', id);
