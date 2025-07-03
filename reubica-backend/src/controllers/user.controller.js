@@ -259,30 +259,40 @@ export async function updateOwnUserController(req, res) {
     const userId = req.user.id;
     const updateData = req.body;
 
+    // Si subió nueva imagen, pon la nueva url en updateData
+    if (req.userPhotoUrl) {
+      updateData.user_icon = req.userPhotoUrl;
+    }
+
+    // Si hay nueva imagen, busca la anterior y la borra
     if (updateData.user_icon) {
       const { data: existingUser, error: fetchError } = await supabase
-        .from("users")
-        .select("user_icon")
-        .eq("id", userId)
+        .from('users')
+        .select('user_icon')
+        .eq('id', userId)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
 
       if (
         existingUser?.user_icon &&
-        existingUser.user_icon !== updateData.user_icon
+        existingUser.user_icon !== updateData.user_icon &&
+        existingUser.user_icon.startsWith('https://')
       ) {
-        const urlParts = existingUser.user_icon.split("/");
-        const filePath = urlParts.slice(7).join("/");
-        await supabase.storage.from("usericons").remove([filePath]);
+        const urlParts = existingUser.user_icon.split('/usericons/'); 
+        if (urlParts.length === 2) {
+          const filePath = urlParts[1];
+          await supabase.storage.from('usericons').remove([filePath]);
+        }
       }
     }
 
     const updatedUser = await usersService.updateUser(userId, updateData);
 
-    return res
-      .status(200)
-      .json({ message: "Perfil actualizado correctamente", user: updatedUser });
+    if (!updatedUser) {
+      return res.status(400).json({ error: "No se pudo actualizar el usuario" });
+    }
+    return res.status(200).json(updatedUser);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

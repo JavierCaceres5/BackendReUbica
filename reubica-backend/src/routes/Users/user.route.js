@@ -90,8 +90,11 @@ router.delete(
 router.put(
   "/updateProfile",
   authenticateToken,
-  authorizeRoles("cliente", "emprendedor"),
-  usersController.updateOwnUserController
+  authorizeRoles('cliente', 'emprendedor'),
+  upload.single("user_icon"),             
+  uploadUserImageToSupabase,               
+  usersController.updateOwnUserController  
 );
 
 export default router;
+
