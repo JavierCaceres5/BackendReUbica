@@ -7,7 +7,8 @@ import {
 import {
   userRegisterValidationRules,
   userLoginValidationRules,
-  changePasswordValidationRules,
+  sendResetCodeValidation,
+  resetPasswordValidation,
 } from "../../validators/user.validators.js";
 import validate from "../../middlewares/validation.middleware.js";
 import upload from "../../middlewares/uploadImage.middleware.js";
@@ -30,6 +31,23 @@ router.post(
   validate,
   usersController.login
 );
+
+// Enviar código de verificación para restablecer contraseña
+router.post(
+  '/sendResetCode',
+  sendResetCodeValidation,
+  validate,
+  usersController.sendResetCode
+);
+
+// Restablecer contraseña
+router.post(
+  '/resetPassword',
+  resetPasswordValidation,
+  validate,
+  usersController.resetPassword
+);
+
 // Admin puede ver todos los usuarios
 router.get(
   "/",
@@ -37,7 +55,8 @@ router.get(
   authorizeRoles("admin"),
   usersController.getUsers
 );
-// Usuario loggeado puede ver su propio perfil
+
+// Usuario loggeado puede ver su propio perfil, tambien es utilzado para ratings
 router.get(
   "/:id",
   authenticateToken,
@@ -62,14 +81,14 @@ router.delete(
 );
 
 router.delete(
-  '/deleteProfile',
-   authenticateToken,
-    authorizeRoles('cliente', 'emprendedor'),
-     usersController.deleteOwnUserController
+  "/deleteProfile",
+  authenticateToken,
+  authorizeRoles("cliente", "emprendedor"),
+  usersController.deleteOwnUserController
 );
 
 router.put(
-  '/updateProfile',
+  "/updateProfile",
   authenticateToken,
   authorizeRoles('cliente', 'emprendedor'),
   upload.single("user_icon"),             
@@ -77,5 +96,5 @@ router.put(
   usersController.updateOwnUserController  
 );
 
-
 export default router;
+

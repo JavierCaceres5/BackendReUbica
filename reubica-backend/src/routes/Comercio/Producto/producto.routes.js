@@ -54,7 +54,7 @@ router.get(
 router.get(
   "/:id",
   authenticateToken,
-  authorizeRoles("admin"),
+  authorizeRoles("admin", "cliente", "emprendedor"),
   productoController.getProductoByIdController
 );
 
