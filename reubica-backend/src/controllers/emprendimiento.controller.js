@@ -26,10 +26,8 @@ export async function getEmprendimientosController(req, res) {
 // Obtener emprendimiento por ID
 export async function getEmprendimientoByIdController(req, res) {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Acceso denegado, solo admins" });
-    }
     const id = req.params.id;
+    // console.log("ID del emprendimiento:", id);
     const emprendimiento = await emprendimientoService.getEmprendimientoById(
       id
     );

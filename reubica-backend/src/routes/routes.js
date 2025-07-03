@@ -1,7 +1,8 @@
 import express from "express";
-import usersRoutes from "./user.route.js";
-import emprendimientoRoutes from "./emprendimiento.route.js"
-
+import usersRoutes from "./Users/user.route.js";
+import emprendimientoRoutes from "./Comercio/emprendimiento.route.js";
+import productoRoutes from "./Comercio/Producto/producto.routes.js"
+import favoritosRoutes from "./Users/favs.route.js";
 
 const router = express.Router();
 

@@ -3,6 +3,7 @@ import { supabase } from "../config/config.js";
 import { v4 as uuidv4 } from "uuid"; // Esto es para el nombre aleatorio de la imagen
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
 export async function getUsers(req, res) {
   try {
@@ -15,15 +16,7 @@ export async function getUsers(req, res) {
 
 export async function getUserById(req, res) {
   try {
-    const userRole = req.user.role;
-    const userIdFromToken = req.user.id;
     const userIdFromParams = req.params.id;
-
-    if (userRole !== "admin" && userIdFromToken !== userIdFromParams) {
-      return res
-        .status(403)
-        .json({ error: "No autorizado para ver este usuario" });
-    }
 
     const { data, error } = await supabase
       .from("users")
@@ -32,6 +25,7 @@ export async function getUserById(req, res) {
       .maybeSingle();
 
     if (error) throw error;
+    if (!data) return res.status(404).json({ error: "Usuario no encontrado" });
 
     res.status(200).json(data);
   } catch (error) {
@@ -225,32 +219,36 @@ export async function deleteOwnUserController(req, res) {
     const userIdFromToken = req.user.id;
     const userIdToDelete = req.params.id || userIdFromToken;
 
-    if (userRole !== 'admin' && userIdToDelete !== userIdFromToken) {
-      return res.status(403).json({ error: 'No autorizado para eliminar este usuario' });
+    if (userRole !== "admin" && userIdToDelete !== userIdFromToken) {
+      return res
+        .status(403)
+        .json({ error: "No autorizado para eliminar este usuario" });
     }
 
-    if (userRole === 'admin' && userIdToDelete === userIdFromToken) {
-      return res.status(403).json({ error: 'No puedes eliminar tu propia cuenta de administrador.' });
+    if (userRole === "admin" && userIdToDelete === userIdFromToken) {
+      return res.status(403).json({
+        error: "No puedes eliminar tu propia cuenta de administrador.",
+      });
     }
 
     const { data: user, error: findError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userIdToDelete)
+      .from("users")
+      .select("*")
+      .eq("id", userIdToDelete)
       .maybeSingle();
 
     if (findError) throw findError;
-    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
 
     if (user.user_icon) {
-      const urlParts = user.user_icon.split('/');
-      const filePath = urlParts.slice(7).join('/');
-      await supabase.storage.from('usericons').remove([filePath]);
+      const urlParts = user.user_icon.split("/");
+      const filePath = urlParts.slice(7).join("/");
+      await supabase.storage.from("usericons").remove([filePath]);
     }
 
     await usersService.deleteUser(userIdToDelete);
 
-    return res.status(200).json({ message: 'Usuario eliminado exitosamente.' });
+    return res.status(200).json({ message: "Usuario eliminado exitosamente." });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -263,24 +261,97 @@ export async function updateOwnUserController(req, res) {
 
     if (updateData.user_icon) {
       const { data: existingUser, error: fetchError } = await supabase
-        .from('users')
-        .select('user_icon')
-        .eq('id', userId)
+        .from("users")
+        .select("user_icon")
+        .eq("id", userId)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
 
-      if (existingUser?.user_icon && existingUser.user_icon !== updateData.user_icon) {
-        const urlParts = existingUser.user_icon.split('/');
-        const filePath = urlParts.slice(7).join('/');
-        await supabase.storage.from('usericons').remove([filePath]);
+      if (
+        existingUser?.user_icon &&
+        existingUser.user_icon !== updateData.user_icon
+      ) {
+        const urlParts = existingUser.user_icon.split("/");
+        const filePath = urlParts.slice(7).join("/");
+        await supabase.storage.from("usericons").remove([filePath]);
       }
     }
 
     const updatedUser = await usersService.updateUser(userId, updateData);
 
-    return res.status(200).json({ message: 'Perfil actualizado correctamente', user: updatedUser });
+    return res
+      .status(200)
+      .json({ message: "Perfil actualizado correctamente", user: updatedUser });
   } catch (error) {
     return res.status(500).json({ error: error.message });
+  }
+}
+
+export async function sendResetCode(req, res) {
+  try {
+    const { email } = req.body;
+    const user = await usersService.getUserByEmail(email);
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6 dígitos
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    await usersService.createResetToken(email, code, expiresAt);
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: {
+        user: process.env.EMAIL_FROM,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"ReUbica - Soporte" <${process.env.EMAIL_FROM}>`,
+      to: email,
+      subject: "🔐 Tu código para recuperar la contraseña",
+      text: `
+
+¡Hola!
+
+Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en ReUbica.
+
+📌 Tu código de verificación es: ${code}
+
+⏱️ Este código estará activo por 10 minutos.
+
+⚠️ Por tu seguridad, NO lo compartas con nadie.
+
+Gracias por usar ReUbica 💚
+
+— El equipo de ReUbica`,
+    });
+
+    res.status(200).json({ message: "Código enviado al correo" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function resetPassword(req, res) {
+  try {
+    const { email, code, newPassword, confirmNewPassword } = req.body;
+
+    if (newPassword !== confirmNewPassword)
+      return res.status(400).json({ error: "Las contraseñas no coinciden" });
+
+    const token = await usersService.getValidResetToken(email, code);
+    if (!token)
+      return res.status(400).json({ error: "Código inválido o expirado" });
+
+    await usersService.changePassword(email, newPassword);
+    await usersService.markResetTokenAsUsed(token.id);
+
+    res.status(200).json({ message: "Contraseña actualizada correctamente" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 }

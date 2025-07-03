@@ -40,20 +40,42 @@ export const userLoginValidationRules = [
   .trim(),
 ];
 
-export const changePasswordValidationRules = [
+export const sendResetCodeValidation = [
+  body('email')
+    .isEmail()
+    .withMessage('Debe proporcionar un correo electrónico válido.')
+    .normalizeEmail()
+    .trim(),
+];
+
+export const resetPasswordValidation = [
   body('email')
     .isEmail()
     .withMessage('Debe proporcionar un correo electrónico válido.')
     .normalizeEmail()
     .trim(),
 
+  body('code')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('El código debe tener 6 dígitos.')
+    .isNumeric()
+    .withMessage('El código debe contener solo números.')
+    .trim(),
+
   body('newPassword')
     .isLength({ min: 8 })
-    .withMessage('La nueva contraseña debe tener al menos 8 caracteres.')
+    .withMessage('La contraseña debe tener al menos 8 caracteres.')
+    .matches(/[A-Z]/)
+    .withMessage('La contraseña debe tener al menos una letra mayúscula.')
+    .matches(/\d/)
+    .withMessage('La contraseña debe tener al menos un número.')
+    .matches(/[!@#$%^&*(),.?":{}|<>]/)
+    .withMessage('La contraseña debe tener al menos un carácter especial.')
     .trim(),
-    
+
   body('confirmNewPassword')
     .custom((value, { req }) => value === req.body.newPassword)
     .withMessage('Las contraseñas no coinciden.')
     .trim(),
 ];
+
