@@ -7,6 +7,17 @@ export async function getAllUsers() {
   return data;
 }
 
+export async function getUserByIdService(id) {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, firstname, lastname, phone, email, user_icon, user_role, created_at, updated_at")
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function getUserById(id) {
   const { data, error } = await supabase
     .from("users")
