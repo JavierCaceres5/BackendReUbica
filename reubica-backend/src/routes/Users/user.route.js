@@ -56,6 +56,13 @@ router.get(
   usersController.getUsers
 );
 
+router.get(
+  "/getOwnProfile",
+  authenticateToken,
+  authorizeRoles("admin", "cliente", "emprendedor"),
+  usersController.getOwnUserProfileController
+)
+
 // Usuario loggeado puede ver su propio perfil, tambien es utilzado para ratings
 router.get(
   "/:id",
